@@ -1,0 +1,13 @@
+package com.pickleball.cart.repository;
+
+import com.pickleball.cart.entity.CartItem;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface CartItemRepository extends JpaRepository<CartItem, Long> {
+    List<CartItem> findByCartIdOrderByIdAsc(Long cartId);
+    Optional<CartItem> findByCartIdAndVariantId(Long cartId, Long variantId);
+    Optional<CartItem> findByIdAndCartId(Long id, Long cartId);
+    void deleteByCartId(Long cartId);
+}

@@ -1,0 +1,26 @@
+frontend/node_modules/
+frontend/dist/
+backend/target/
+backend/data/
+data/*.db
+data/*.db.*
+.env
+*.log
+backend/*.db
+frontend/.env.local
+backend/application-local.properties
+backend/data-transfer/
+.idea/workspace.xml
+
+.env.*
+!.env.example
+
+# Local configuration and files withheld from the public repository
+/application-local.properties
+/docker-compose.yml
+/PLAN_DU_AN_PICKLEBALL.md
+/docs/api-specification.md
+
+/pickleball-court-booking-database-clear.png
+/README.md
+/backend/README.md

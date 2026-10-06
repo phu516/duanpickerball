@@ -1,0 +1,182 @@
+.court-availability-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 28px;
+  padding: 20px;
+  border: 1px solid #d7e3ee;
+  border-radius: 15px;
+  background: #fff;
+}
+
+.court-availability-controls h2 {
+  margin: 0 0 5px;
+  color: #003a5d;
+  font-size: 18px;
+}
+
+.court-availability-controls p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.court-availability-fields {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.court-availability-fields label {
+  min-width: 120px;
+}
+
+.court-availability-fields label:first-child {
+  min-width: 155px;
+}
+
+.court-card.court-card--occupied {
+  border-color: #cbd2d8;
+  background: #f0f2f4;
+  color: #64727c;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.court-card--occupied .court-code {
+  background: #82909a;
+  box-shadow: none;
+}
+
+.court-card--occupied .mini-court-art {
+  border-color: #687680;
+  background: linear-gradient(145deg, #aab4bc, #788891);
+  box-shadow: none;
+}
+
+.court-card--occupied .court-card-foot {
+  border-color: #cbd2d8;
+}
+
+.court-card.court-card--occupied strong,
+.court-card.court-card--occupied .court-select {
+  color: #566570;
+}
+
+.court-card .court-occupied-message {
+  display: block;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #e0e5e9;
+  color: #394b57;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .court-availability-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 600px) {
+  .court-availability-fields {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.booking-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(5, 31, 49, 0.7);
+}
+
+.booking-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 100%);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(0, 25, 43, 0.3);
+}
+
+.booking-dialog-top {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e2ebe4;
+  color: #003a5d;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.booking-dialog-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: #eaf4ff;
+  color: #006194;
+}
+
+.booking-dialog-close:hover,
+.booking-dialog-close:focus-visible {
+  background: #cce5ff;
+}
+
+.booking-dialog-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.booking-dialog .booking-panel {
+  margin: 0;
+  padding: 24px 30px 30px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.booking-dialog .panel-heading p,
+.booking-dialog .form-actions p {
+  color: #5b6974;
+  line-height: 1.7;
+}
+
+@media (max-width: 600px) {
+  .booking-overlay {
+    padding: 0;
+  }
+
+  .booking-dialog {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .booking-dialog .booking-panel {
+    padding: 20px 16px 28px;
+  }
+}

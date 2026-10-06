@@ -1,0 +1,11 @@
+app:
+  payment:
+    sandbox-enabled: true
+  seed:
+    enabled: true
+  dev-admin:
+    username: ${PICKLE_DEV_ADMIN_USERNAME:admin}
+    password: ${PICKLE_DEV_ADMIN_PASSWORD:}
+  dev-staff:
+    username: ${PICKLE_DEV_STAFF_USERNAME:staff}
+    password: ${PICKLE_DEV_STAFF_PASSWORD:}
