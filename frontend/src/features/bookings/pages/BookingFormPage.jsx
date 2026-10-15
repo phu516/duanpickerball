@@ -67,7 +67,7 @@ export default function BookingFormPage({ court, initialDate, initialFrom = '17:
         startAt: offsetDate(date, from), endAt: offsetDate(date, to),
         name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim() || null, note: form.note.trim() || null }, requestKey.current);
       sessionStorage.setItem(bookingTokenKey(booking.bookingCode), booking.guestAccessToken);
-      navigate(`/bookings/${booking.bookingCode}`);
+      navigate(`/booking-payments/${booking.bookingCode}`);
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -83,7 +83,7 @@ export default function BookingFormPage({ court, initialDate, initialFrom = '17:
       <label>Email (không bắt buộc)<input type="email" value={form.email} aria-invalid={!!fieldErrors.email} aria-describedby={fieldErrors.email ? 'booking-email-error' : undefined} ref={node => { inputRefs.current.email = node; }} onChange={e => updateForm('email', e.target.value)}/>{fieldErrors.email && <small className="booking-field-error" id="booking-email-error">{fieldErrors.email}</small>}</label>
       <label>Ghi chú<textarea maxLength="1000" value={form.note} onChange={e => updateForm('note', e.target.value)}/></label>
       {error && <p className="inline-message error" role="alert">{error}</p>}
-      <div className="form-actions"><p>Khách đến muộn quá 30 phút sau giờ bắt đầu có thể bị ghi nhận không đến và mất cọc.</p><button className="btn primary" disabled={busy}>{busy ? 'Đang tạo phiếu…' : 'Tạo phiếu giữ sân'}</button></div>
+      <div className="form-actions"><p>Khách đến muộn quá 30 phút sau giờ bắt đầu có thể bị ghi nhận không đến và mất cọc.</p><button className="btn primary" disabled={busy}>{busy ? 'Đang giữ sân…' : 'Tiếp tục thanh toán cọc'}</button></div>
     </form>
   </section>;
 }

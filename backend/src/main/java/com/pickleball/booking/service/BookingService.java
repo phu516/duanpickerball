@@ -12,9 +12,13 @@ import com.pickleball.court.dto.BookingQuote;
 import com.pickleball.court.entity.Court;
 import com.pickleball.court.service.CourtService;
 import com.pickleball.setting.service.BookingPolicyService;
+import com.pickleball.payment.service.PaymentLinkLifecycleService;
 import java.time.*;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -30,11 +34,12 @@ public class BookingService {
     private final BookingPolicyService policies;
     private final AuditService audit;
     private final IdempotencyService idempotency;
+    private final PaymentLinkLifecycleService paymentLinks;
 
     public BookingService(BookingRepository bookings, BookingCancellationRepository cancellations,
                           CourtService courts, GuestAccessService guestAccess, ObjectMapper mapper,
                           BookingPolicyService policies, AuditService audit,
-                          IdempotencyService idempotency) {
+                          IdempotencyService idempotency, PaymentLinkLifecycleService paymentLinks) {
         this.bookings = bookings;
         this.cancellations = cancellations;
         this.courts = courts;
@@ -43,6 +48,7 @@ public class BookingService {
         this.policies = policies;
         this.audit = audit;
         this.idempotency = idempotency;
+        this.paymentLinks = paymentLinks;
     }
 
     @Transactional
@@ -86,38 +92,20 @@ public class BookingService {
         return BookingResponse.from(booking, null);
     }
 
-    @Transactional
-    public BookingResponse cancelHold(String code, String token) {
-        Booking booking = byCode(code);
-        guestAccess.require(token, "BOOKING", booking.getId());
-        courts.lock(booking.getCourt().getId());
-        if (!booking.getStatus().equals("HOLD")) {
-            throw conflict("BOOKING_NOT_ON_HOLD", "Chỉ có thể tự hủy phiếu chưa đặt cọc");
-        }
-        booking.cancel("Khách hủy trước khi đặt cọc");
-        return BookingResponse.from(booking, null);
-    }
-
-    @Transactional
-    public CancellationResponse requestCancellation(String code, String token, String reason) {
-        Booking booking = byCode(code);
-        guestAccess.require(token, "BOOKING", booking.getId());
-        if (!booking.getStatus().equals("CONFIRMED")) {
-            throw conflict("INVALID_CANCELLATION_STATE", "Phiếu chưa ở trạng thái xác nhận");
-        }
-        return CancellationResponse.from(cancellations.save(new BookingCancellationRequest(booking, reason)));
-    }
-
-    @Transactional(readOnly = true)
-    public List<CancellationResponse> guestCancellationRequests(String code, String token) {
-        Booking booking = byCode(code);
-        guestAccess.require(token, "BOOKING", booking.getId());
-        return cancellations.findByBookingId(booking.getId()).stream().map(CancellationResponse::from).toList();
-    }
-
     @Transactional(readOnly = true)
     public List<CancellationResponse> adminCancellationRequests() {
-        return cancellations.findAll().stream().map(CancellationResponse::from).toList();
+        List<BookingCancellationRequest> requests = cancellations.findAll();
+        Set<Long> approvedBookingIds = requests.stream()
+                .filter(request -> request.getStatus().equals("APPROVED"))
+                .map(request -> request.getBooking().getId())
+                .collect(java.util.stream.Collectors.toSet());
+        return Stream.concat(
+                        requests.stream().map(CancellationResponse::from),
+                        bookings.findCancelledBookings().stream()
+                                .filter(booking -> !approvedBookingIds.contains(booking.getId()))
+                                .map(CancellationResponse::fromAdminCancellation))
+                .sorted(Comparator.comparing(CancellationResponse::createdAt).reversed())
+                .toList();
     }
 
     @Transactional
@@ -129,9 +117,10 @@ public class BookingService {
         Booking booking = request.getBooking();
         if (approve) {
             courts.lock(booking.getCourt().getId());
-            if (!booking.getStatus().equals("CONFIRMED"))
-                throw conflict("BOOKING_NOT_CANCELLABLE", "Phiếu không còn ở trạng thái xác nhận");
+            if (!List.of("HOLD", "CONFIRMED").contains(booking.getStatus()))
+                throw conflict("BOOKING_NOT_CANCELLABLE", "Phiếu không còn ở trạng thái có thể hủy");
             booking.cancel(reason);
+            paymentLinks.cancelForBooking(booking.getId());
             audit.record("BOOKING_CANCELLATION_APPROVED", "BOOKING", booking.getId(), reason);
         }
         request.review(null, approve ? "APPROVED" : "REJECTED", reason);
@@ -140,7 +129,8 @@ public class BookingService {
 
     @Transactional(readOnly = true)
     public List<BookingResponse> adminList() {
-        return bookings.findAll().stream().map(booking -> BookingResponse.from(booking, null)).toList();
+        return bookings.findAllVisibleToAdmin().stream()
+                .map(booking -> BookingResponse.from(booking, null)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -154,6 +144,7 @@ public class BookingService {
             throw conflict("BOOKING_NOT_CANCELLABLE", "Không thể hủy phiếu ở trạng thái này");
         }
         booking.cancel(reason);
+        paymentLinks.cancelForBooking(booking.getId());
         audit.record("BOOKING_CANCELLED", "BOOKING", id, reason);
         return BookingResponse.from(booking, null);
     }
@@ -164,7 +155,11 @@ public class BookingService {
         if (!booking.getStatus().equals("CONFIRMED")) {
             throw conflict("INVALID_CHECK_IN", "Chỉ nhận sân cho phiếu đã đặt cọc");
         }
-        if (LocalDateTime.now(ZoneOffset.UTC).isAfter(booking.getStartAt()
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        if (now.isBefore(booking.getStartAt().minusMinutes(30))) {
+            throw conflict("ARRIVAL_TOO_EARLY", "Chỉ có thể nhận sân từ 30 phút trước giờ bắt đầu");
+        }
+        if (now.isAfter(booking.getStartAt()
                 .plusMinutes(booking.getLateArrivalGraceMinutesSnapshot()))) {
             throw conflict("ARRIVAL_TOO_LATE", "Quá thời gian đến trễ cho phép");
         }
@@ -213,7 +208,10 @@ public class BookingService {
         List<Booking> expired = bookings.findByStatusAndHoldExpiresAtBefore("HOLD", now);
         for (Booking booking : expired) {
             courts.lock(booking.getCourt().getId());
-            if (booking.getStatus().equals("HOLD") && booking.getHoldExpiresAt().isBefore(now)) booking.expire();
+            if (booking.getStatus().equals("HOLD") && booking.getHoldExpiresAt().isBefore(now)) {
+                booking.expire();
+                paymentLinks.cancelForBooking(booking.getId());
+            }
         }
         return expired.size();
     }

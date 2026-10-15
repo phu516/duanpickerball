@@ -18,13 +18,16 @@ public class ProductService {
     private final ProductRepository products;
     private final ProductVariantRepository variants;
     private final ProductFulfillmentRepository fulfillment;
+    private final ProductImageRepository images;
     private final CategoryRepository categories;
 
     public ProductService(ProductRepository products, ProductVariantRepository variants,
-                          ProductFulfillmentRepository fulfillment, CategoryRepository categories) {
+                          ProductFulfillmentRepository fulfillment, ProductImageRepository images,
+                          CategoryRepository categories) {
         this.products = products;
         this.variants = variants;
         this.fulfillment = fulfillment;
+        this.images = images;
         this.categories = categories;
     }
 
@@ -46,6 +49,7 @@ public class ProductService {
         Category category = requireCategory(request.categoryId());
         Product product = products.save(new Product(category, request.name(), request.brand(),
                 request.description(), request.emoji()));
+        product.setImageUrl(request.imageUrl());
         variants.save(new ProductVariant(product, request.sku(), "Mặc định",
                 request.price(), request.stock()));
         for (String method : request.fulfillmentOptions()) {
@@ -59,6 +63,7 @@ public class ProductService {
         Product product = requireProduct(id);
         product.update(requireCategory(request.categoryId()), request.name(), request.brand(),
                 request.description(), request.emoji(), request.active());
+        product.setImageUrl(request.imageUrl());
         return map(product);
     }
 
@@ -86,8 +91,34 @@ public class ProductService {
         return map(variant.getProduct());
     }
 
+    @Transactional
+    public ProductResponse updateVariantImage(Long id, String imageUrl) {
+        ProductVariant variant = variants.findById(id).orElseThrow(() -> new BusinessException(
+                HttpStatus.NOT_FOUND, "VARIANT_NOT_FOUND", "Không tìm thấy SKU"));
+        List<ProductImage> existing = images.findByProductIdOrderByPrimaryImageDescSortOrderAscIdAsc(
+                variant.getProduct().getId()).stream()
+                .filter(image -> image.getVariant() != null && image.getVariant().getId().equals(id)).toList();
+        if (imageUrl == null || imageUrl.isBlank()) {
+            images.deleteAll(existing);
+        } else if (existing.isEmpty()) {
+            images.save(new ProductImage(variant.getProduct(), variant, imageUrl.trim()));
+        } else {
+            existing.getFirst().setUrl(imageUrl.trim());
+            if (existing.size() > 1) images.deleteAll(existing.subList(1, existing.size()));
+        }
+        return map(variant.getProduct());
+    }
+
+    @Transactional
+    public ProductResponse updateImage(Long id, String imageUrl) {
+        Product product = requireProduct(id);
+        product.setImageUrl(imageUrl == null || imageUrl.isBlank() ? null : imageUrl.trim());
+        return map(product);
+    }
+
     private ProductResponse map(Product product) {
         List<ProductVariant> allVariants = variants.findByProductIdOrderByIdAsc(product.getId());
+        List<ProductImage> productImages = images.findByProductIdOrderByPrimaryImageDescSortOrderAscIdAsc(product.getId());
         ProductVariant variant = allVariants.stream()
                 .findFirst().orElseThrow(() -> new BusinessException(HttpStatus.CONFLICT,
                         "NO_VARIANT", "Sản phẩm chưa có SKU"));
@@ -97,7 +128,10 @@ public class ProductService {
                 variant.getSku(), fulfillment.findByProductId(product.getId()).stream()
                 .map(ProductFulfillmentOption::getMethod).toList(),
                 allVariants.stream().map(v -> new ProductResponse.Variant(v.getId(),
-                        v.getSku(), v.getLabel(), v.getPrice(), v.available(), v.isActive())).toList());
+                        v.getSku(), v.getLabel(), v.getPrice(), v.available(), v.isActive(),
+                        productImages.stream().filter(image -> image.getVariant() != null
+                                && image.getVariant().getId().equals(v.getId()))
+                                .map(ProductImage::getUrl).findFirst().orElse(product.getImageUrl()))).toList());
     }
 
     private Product requireProduct(Long id) {
@@ -112,12 +146,14 @@ public class ProductService {
 
     public record ProductRequest(@NotNull Long categoryId, @NotBlank String name,
                                  @NotBlank String brand, String description, @NotBlank String emoji,
+                                 @Size(max = 500) String imageUrl,
                                  @NotBlank String sku, @NotNull @DecimalMin("0.01") BigDecimal price,
                                  @Min(0) int stock, @NotEmpty List<String> fulfillmentOptions) {}
 
     public record ProductUpdate(@NotNull Long categoryId, @NotBlank String name,
                                 @NotBlank String brand, String description,
-                                @NotBlank String emoji, boolean active) {}
+                                @NotBlank String emoji, @Size(max = 500) String imageUrl,
+                                boolean active) {}
     public record VariantRequest(@NotBlank String sku, @NotBlank String label,
                                  @NotNull @DecimalMin("0.01") BigDecimal price, @Min(0) int stock) {}
     public record VariantUpdate(@NotBlank String label,

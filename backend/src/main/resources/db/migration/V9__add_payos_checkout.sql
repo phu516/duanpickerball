@@ -1,0 +1,10 @@
+alter table payments add column provider_order_code bigint;
+alter table payments add column provider_payment_link_id varchar(120);
+alter table payments add column payment_url varchar(1000);
+alter table payments add column qr_code varchar(2500);
+alter table payments add column account_name varchar(255);
+alter table payments add column account_number varchar(60);
+alter table payments add column description varchar(100);
+alter table payments add column expires_at datetime(6);
+create unique index uq_payments_provider_order_code on payments(provider_order_code);
+create unique index uq_payments_provider_payment_link_id on payments(provider_payment_link_id);

@@ -9,5 +9,5 @@ public record ProductResponse(Long id, Long variantId, String name, String brand
                               String sku, List<String> fulfillmentOptions,
                               List<Variant> variants) {
     public record Variant(Long id, String sku, String label, BigDecimal price,
-                          int stock, boolean active) {}
+                          int stock, boolean active, String imageUrl) {}
 }

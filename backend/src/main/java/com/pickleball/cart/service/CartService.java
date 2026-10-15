@@ -4,6 +4,8 @@ import com.pickleball.cart.entity.*;
 import com.pickleball.cart.repository.*;
 import com.pickleball.common.exception.BusinessException;
 import com.pickleball.product.entity.ProductVariant;
+import com.pickleball.product.entity.ProductImage;
+import com.pickleball.product.repository.ProductImageRepository;
 import com.pickleball.product.repository.ProductVariantRepository;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -19,13 +21,15 @@ public class CartService {
     private final CartRepository carts;
     private final CartItemRepository items;
     private final ProductVariantRepository variants;
+    private final ProductImageRepository images;
     private final SecureRandom random = new SecureRandom();
 
     public CartService(CartRepository carts, CartItemRepository items,
-                       ProductVariantRepository variants) {
+                       ProductVariantRepository variants, ProductImageRepository images) {
         this.carts = carts;
         this.items = items;
         this.variants = variants;
+        this.images = images;
     }
 
     @Transactional
@@ -103,8 +107,14 @@ public class CartService {
 
     private CartLine map(CartItem item) {
         ProductVariant variant = item.getVariant();
+        String imageUrl = images.findByProductIdOrderByPrimaryImageDescSortOrderAscIdAsc(
+                variant.getProduct().getId()).stream()
+                .filter(image -> image.getVariant() != null
+                        && image.getVariant().getId().equals(variant.getId()))
+                .map(ProductImage::getUrl).findFirst().orElse(variant.getProduct().getImageUrl());
         return new CartLine(item.getId(), variant.getId(), variant.getProduct().getName(),
-                variant.getSku(), variant.getPrice(), item.getQuantity(),
+                variant.getLabel(), variant.getSku(), imageUrl, variant.available(),
+                variant.getPrice(), item.getQuantity(),
                 variant.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
     }
 
@@ -129,6 +139,7 @@ public class CartService {
     }
 
     public record CreatedCart(Cart cart, String token, boolean newCookie) {}
-    public record CartLine(Long itemId, Long variantId, String productName, String sku,
+    public record CartLine(Long itemId, Long variantId, String productName,
+                           String variantLabel, String sku, String imageUrl, int available,
                            BigDecimal unitPrice, int quantity, BigDecimal lineTotal) {}
 }

@@ -63,6 +63,7 @@ public class Booking {
     public Long getId() { return id; }
     public String getBookingCode() { return bookingCode; }
     public Court getCourt() { return court; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
     public String getGuestName() { return guestName; }
     public String getGuestPhone() { return guestPhone; }
     public String getGuestEmail() { return guestEmail; }
@@ -71,6 +72,8 @@ public class Booking {
     public BigDecimal getTotalAmount() { return totalAmount; }
     public BigDecimal getDepositRequired() { return depositRequired; }
     public String getStatus() { return status; }
+    public LocalDateTime getCancelledAt() { return cancelledAt; }
+    public String getCancelReason() { return cancelReason; }
     public LocalDateTime getHoldExpiresAt() { return holdExpiresAt; }
     public int getLateArrivalGraceMinutesSnapshot() { return lateArrivalGraceMinutesSnapshot; }
 

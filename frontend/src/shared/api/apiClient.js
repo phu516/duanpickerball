@@ -1,6 +1,8 @@
 const baseUrl = import.meta.env.VITE_API_URL || '/api/v1';
 let csrf;
 
+export const apiUrl = path => `${baseUrl}${path}`;
+
 export async function api(path, { method = 'GET', body, token, form = false, requestKey } = {}) {
   if (method !== 'GET' && !csrf) {
     const response = await fetch(`${baseUrl}/auth/csrf`, { credentials: 'include' });

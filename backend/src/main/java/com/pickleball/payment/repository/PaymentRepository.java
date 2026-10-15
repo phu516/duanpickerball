@@ -13,6 +13,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByBookingId(Long bookingId);
     List<Payment> findByOrderId(Long orderId);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Payment p where p.provider = 'PAYOS' and p.providerOrderCode = :orderCode")
+    Optional<Payment> findLockedPayosOrder(@Param("orderCode") Long orderCode);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Payment p where p.id = :id")
     Optional<Payment> findLockedById(@Param("id") Long id);
 }

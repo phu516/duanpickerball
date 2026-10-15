@@ -1,0 +1,284 @@
+.admin-cancel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(13 35 49 / 58%);
+  backdrop-filter: blur(3px);
+}
+
+.admin-cancel-dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 28px;
+  border: 1px solid #e2eaf0;
+  border-radius: 20px;
+  background: #fff;
+  color: #203441;
+  box-shadow: 0 24px 80px rgb(0 25 44 / 28%);
+  animation: admin-cancel-enter 160ms ease-out;
+}
+
+@keyframes admin-cancel-enter {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.admin-cancel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.admin-cancel-heading .eyebrow {
+  color: #a34a2b;
+}
+
+.admin-cancel-heading h2 {
+  margin: 6px 0 0;
+  color: #18394e;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.admin-cancel-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #dce6ed;
+  border-radius: 50%;
+  background: #f5f8fa;
+  color: #496273;
+}
+
+.admin-cancel-close svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.admin-cancel-close:hover:not(:disabled) {
+  border-color: #c2d8e5;
+  background: #eaf4fa;
+}
+
+.admin-cancel-booking {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 16px;
+  padding: 15px 16px;
+  border: 1px solid #e1ebf1;
+  border-radius: 12px;
+  background: #f5f9fc;
+}
+
+.admin-cancel-booking b {
+  color: #006194;
+  font-size: 14px;
+}
+
+.admin-cancel-booking span {
+  color: #263f4e;
+  font-weight: 600;
+}
+
+.admin-cancel-booking small,
+.admin-cancel-meta small {
+  color: #728493;
+}
+
+.admin-cancel-description {
+  margin: 0 0 18px;
+  color: #647783;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.admin-cancel-dialog form > label {
+  margin-bottom: 8px;
+  color: #344f5f;
+  font-size: 13px;
+}
+
+.admin-cancel-dialog textarea {
+  min-height: 112px;
+  resize: vertical;
+  border-color: #cbd9e2;
+  line-height: 1.55;
+}
+
+.admin-cancel-dialog textarea:focus {
+  border-color: #006194;
+  box-shadow: 0 0 0 3px rgb(0 97 148 / 12%);
+}
+
+.admin-cancel-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.admin-cancel-meta [role="alert"] {
+  color: #ad3f2b;
+  text-align: right;
+}
+
+.admin-cancel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-cancel-actions .btn.danger {
+  border: 0;
+  background: #a9442b;
+  color: #fff;
+}
+
+.admin-cancel-actions .btn.danger:hover:not(:disabled) {
+  background: #88331f;
+}
+
+.admin-cancel-actions .btn:disabled,
+.admin-cancel-close:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .admin-cancel-dialog {
+    padding: 22px 18px;
+    border-radius: 16px;
+  }
+
+  .admin-cancel-heading h2 {
+    font-size: 21px;
+  }
+
+  .admin-cancel-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-cancel-actions .btn {
+    width: 100%;
+  }
+}
+
+.action-notice-anchor {
+  position: relative;
+  display: inline-block;
+}
+
+.action-notice {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  right: 0;
+  z-index: 5;
+  padding: 6px 10px;
+  transform: translateY(0);
+  border: 1px solid #f0b7b2;
+  border-radius: 8px;
+  background: #fff3f2;
+  color: #b42318;
+  box-shadow: 0 5px 16px rgb(120 31 24 / 14%);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  animation: action-notice-enter 140ms ease-out;
+}
+
+@keyframes action-notice-enter {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.action-notice::before {
+  position: absolute;
+  bottom: -5px;
+  right: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  border-right: 1px solid #f0b7b2;
+  border-bottom: 1px solid #f0b7b2;
+  background: #fff3f2;
+  content: "";
+}
+
+.bookings-table .booking-action {
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-weight: 700;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease,
+    box-shadow 150ms ease, transform 150ms ease;
+}
+
+.bookings-table .booking-action-check-in {
+  background: #e1f1ff;
+  color: #005b8d;
+}
+
+.bookings-table .booking-action-check-in:hover {
+  border-color: #0073ae;
+  background: #006194;
+  color: #fff;
+}
+
+.bookings-table .booking-action-complete {
+  background: #e4f6eb;
+  color: #17623a;
+}
+
+.bookings-table .booking-action-complete:hover {
+  border-color: #25834f;
+  background: #207449;
+  color: #fff;
+}
+
+.bookings-table .booking-action-no-show {
+  background: #fff1df;
+  color: #8a4a00;
+}
+
+.bookings-table .booking-action-no-show:hover {
+  border-color: #bd6b00;
+  background: #a85700;
+  color: #fff;
+}
+
+.bookings-table .booking-action-cancel {
+  background: #ffebeb;
+  color: #a62128;
+}
+
+.bookings-table .booking-action-cancel:hover {
+  border-color: #bd3037;
+  background: #ae2830;
+  color: #fff;
+}
+
+.bookings-table .booking-action:focus-visible {
+  outline: 3px solid #18394e;
+  outline-offset: 2px;
+}
+
+.bookings-table .booking-action:active {
+  transform: translateY(1px) scale(.98);
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 18%);
+}
+

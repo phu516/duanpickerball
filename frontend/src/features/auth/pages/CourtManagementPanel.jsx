@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { api } from '../../../shared/api/apiClient';
 import { adminBookingApi } from '../../bookings/api/adminBookingApi';
-import { localDate, localTime, money } from '../../../shared/utils/format';
+import { localDate, localDateTime, localTime, money } from '../../../shared/utils/format';
 import './CourtManagementPanel.css';
 
 const weekdayNames = ['', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy', 'Chủ nhật'];
@@ -25,7 +26,9 @@ export default function CourtManagementPanel({ courts, onChanged }) {
   const [courtDraft, setCourtDraft] = useState(emptyCourtDraft);
   const [newCourtPrice, setNewCourtPrice] = useState(120000);
   const [priceEdit, setPriceEdit] = useState(null);
+  const [lockConfirmationOpen, setLockConfirmationOpen] = useState(false);
   const courtDialogRef = useRef(null);
+  const lockConfirmationRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -47,7 +50,10 @@ export default function CourtManagementPanel({ courts, onChanged }) {
     document.body.style.overflow = 'hidden';
     courtDialogRef.current?.focus();
     function closeOnEscape(event) {
-      if (event.key === 'Escape') setSelectedCourt(null);
+      if (event.key === 'Escape') {
+        if (lockConfirmationOpen) setLockConfirmationOpen(false);
+        else setSelectedCourt(null);
+      }
     }
     window.addEventListener('keydown', closeOnEscape);
     return () => {
@@ -55,7 +61,11 @@ export default function CourtManagementPanel({ courts, onChanged }) {
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [selectedCourt]);
+  }, [selectedCourt, lockConfirmationOpen]);
+
+  useEffect(() => {
+    if (lockConfirmationOpen) lockConfirmationRef.current?.focus();
+  }, [lockConfirmationOpen]);
 
   const selectedBookings = useMemo(() => {
     if (!selectedCourt) return [];
@@ -65,6 +75,10 @@ export default function CourtManagementPanel({ courts, onChanged }) {
     return result.filter(item => new Date(item.endAt).getTime() >= now
       && ['HOLD', 'CONFIRMED', 'CHECKED_IN'].includes(item.status));
   }, [bookings, bookingFilter, selectedCourt]);
+  const activeCourtBookings = selectedCourt ? bookings.filter(item => item.courtId === selectedCourt.id
+    && new Date(item.endAt).getTime() >= Date.now()
+    && (['CONFIRMED', 'CHECKED_IN'].includes(item.status)
+      || (item.status === 'HOLD' && new Date(item.holdExpiresAt).getTime() >= Date.now()))) : [];
 
   const mapEndTimes = mapTimes.filter(time => time > mapFrom);
 
@@ -96,6 +110,7 @@ export default function CourtManagementPanel({ courts, onChanged }) {
   async function openCourt(item) {
     setSelectedCourt(item);
     setPriceEdit(null);
+    setLockConfirmationOpen(false);
     setDetailsLoading(true);
     setMessage('');
     try {
@@ -158,7 +173,7 @@ export default function CourtManagementPanel({ courts, onChanged }) {
     await run(async () => {
       const updatedCourt = await api(`/admin/courts/${selectedCourt.id}/${action}`, { method: 'POST' });
       setSelectedCourt(updatedCourt);
-    });
+    }, () => setLockConfirmationOpen(false));
   }
 
   return <>
@@ -196,12 +211,12 @@ export default function CourtManagementPanel({ courts, onChanged }) {
       {detailsLoading ? <p role="status">Đang tải chi tiết sân...</p> : <>
         <div className="court-detail-section">
           <div className="section-heading"><div><h3>Lịch đặt sân</h3><p>Thông tin khách, ngày giờ và trạng thái phiếu.</p></div><div className="court-detail-filters"><button type="button" className={bookingFilter === 'upcoming' ? 'active' : ''} onClick={() => setBookingFilter('upcoming')}>Sắp tới</button><button type="button" className={bookingFilter === 'all' ? 'active' : ''} onClick={() => setBookingFilter('all')}>Tất cả</button></div></div>
-          {selectedBookings.length === 0 ? <div className="empty-card">{bookingFilter === 'upcoming' ? 'Sân này chưa có lượt đặt sắp tới.' : 'Sân này chưa có phiếu đặt nào.'}</div> : <div className="table-scroll"><table><thead><tr><th>Mã phiếu</th><th>Khách đặt</th><th>Ngày, giờ bắt đầu</th><th>Giờ kết thúc</th><th>Trạng thái</th></tr></thead><tbody>{selectedBookings.slice().sort((a, b) => new Date(a.startAt) - new Date(b.startAt)).map(item => <tr key={item.id}><td><b>{item.bookingCode}</b></td><td>{item.guestName}<small>{item.guestPhone}</small></td><td>{localTime(item.startAt)}</td><td>{new Date(item.endAt).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })}</td><td><span className="badge">{item.status}</span></td></tr>)}</tbody></table></div>}
+          {selectedBookings.length === 0 ? <div className="empty-card">{bookingFilter === 'upcoming' ? 'Sân này chưa có lượt đặt sắp tới.' : 'Sân này chưa có phiếu đặt nào.'}</div> : <div className="table-scroll"><table className="court-detail-table"><thead><tr><th>Mã phiếu</th><th>Khách đặt</th><th>Ngày khách đặt</th><th>Ngày, giờ bắt đầu</th><th>Giờ kết thúc</th><th>Trạng thái</th></tr></thead><tbody>{selectedBookings.slice().sort((a, b) => new Date(a.startAt) - new Date(b.startAt)).map(item => <tr key={item.id}><td><b>{item.bookingCode}</b></td><td>{item.guestName}<small>{item.guestPhone}</small></td><td>{localDateTime(item.createdAt)}</td><td>{localDateTime(item.startAt)}</td><td>{new Date(item.endAt).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })}</td><td><span className="badge">{item.status}</span></td></tr>)}</tbody></table></div>}
         </div>
 
         <div className="court-detail-section">
           <div className="section-heading"><div><h3>Giá theo ngày và khung giờ</h3><p>Đổi giá từ ngày hiệu lực; giá của các phiếu đã tạo được giữ nguyên.</p></div></div>
-          {priceRules.length === 0 ? <div className="empty-card">Sân này chưa có quy tắc giá.</div> : <div className="table-scroll"><table><thead><tr><th>Ngày</th><th>Khung giờ</th><th>Giá/giờ</th><th>Hiệu lực</th><th></th></tr></thead><tbody>{priceRules.map(rule => <tr key={rule.id}><td>{weekdayNames[rule.dayOfWeek]}</td><td>{String(rule.startTime).slice(0, 5)}–{String(rule.endTime).slice(0, 5)}</td><td>{money(rule.hourlyPrice)}</td><td>{rule.validFrom}{rule.validTo ? ` đến ${rule.validTo}` : ' trở đi'}</td><td><button type="button" className="court-action-button" onClick={() => startPriceEdit(rule)} disabled={rule.validTo && rule.validTo < localDate(new Date())}>Đổi giá</button></td></tr>)}</tbody></table></div>}
+          {priceRules.length === 0 ? <div className="empty-card">Sân này chưa có quy tắc giá.</div> : <div className="table-scroll"><table className="court-detail-table"><thead><tr><th>Ngày</th><th>Khung giờ</th><th>Giá/giờ</th><th>Hiệu lực</th><th></th></tr></thead><tbody>{priceRules.map(rule => <tr key={rule.id}><td>{weekdayNames[rule.dayOfWeek]}</td><td>{String(rule.startTime).slice(0, 5)}–{String(rule.endTime).slice(0, 5)}</td><td>{money(rule.hourlyPrice)}</td><td>{rule.validFrom}{rule.validTo ? ` đến ${rule.validTo}` : ' trở đi'}</td><td><button type="button" className="court-action-button" onClick={() => startPriceEdit(rule)} disabled={rule.validTo && rule.validTo < localDate(new Date())}>Đổi giá</button></td></tr>)}</tbody></table></div>}
           {priceEdit && <form className="court-inline-form" onSubmit={changePrice}><h4>Đổi giá · {weekdayNames[priceEdit.rule.dayOfWeek]} {String(priceEdit.rule.startTime).slice(0, 5)}–{String(priceEdit.rule.endTime).slice(0, 5)}</h4><label>Giá mới/giờ<input required type="number" min="1" value={priceEdit.hourlyPrice} onChange={event => setPriceEdit({ ...priceEdit, hourlyPrice: event.target.value })}/></label><label>Áp dụng từ ngày<input required type="date" min={priceEdit.rule.validFrom} max={priceEdit.rule.validTo || undefined} value={priceEdit.effectiveFrom} onChange={event => setPriceEdit({ ...priceEdit, effectiveFrom: event.target.value })}/></label><div className="button-row"><button className="btn primary">Lưu giá</button><button type="button" className="btn outline" onClick={() => setPriceEdit(null)}>Hủy</button></div></form>}
         </div>
 
@@ -209,7 +224,7 @@ export default function CourtManagementPanel({ courts, onChanged }) {
           <div className="section-heading"><div><h3>Khóa sân</h3><p>{selectedCourt.locked ? 'Sân đang bị khóa và khách không thể đặt sân này.' : 'Khóa sân sẽ tạm ngừng nhận mọi lượt đặt mới cho đến khi admin mở lại.'}</p></div></div>
           <div className={`court-lock-panel${selectedCourt.locked ? ' is-locked' : ''}`}>
             <span className="court-lock-state">{selectedCourt.locked ? 'Đang khóa' : 'Đang mở'}</span>
-            <button type="button" className={`btn ${selectedCourt.locked ? 'outline' : 'primary'}`} onClick={toggleCourtLock}>
+            <button type="button" className={`btn ${selectedCourt.locked ? 'outline' : 'primary'}`} onClick={() => selectedCourt.locked ? toggleCourtLock() : setLockConfirmationOpen(true)}>
               {selectedCourt.locked ? 'Mở lại sân' : 'Khóa sân'}
             </button>
           </div>
@@ -217,6 +232,23 @@ export default function CourtManagementPanel({ courts, onChanged }) {
       </>}
       </section>
     </div>}
+    {lockConfirmationOpen && selectedCourt && createPortal(
+      <div className="court-lock-confirmation-backdrop" onMouseDown={event => {
+        if (event.target === event.currentTarget) setLockConfirmationOpen(false);
+      }}>
+        <section ref={lockConfirmationRef} tabIndex={-1} className="court-lock-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="court-lock-confirmation-title" aria-describedby="court-lock-confirmation-message">
+          <h3 id="court-lock-confirmation-title">Xác nhận khóa sân</h3>
+          {message && message !== 'Đã cập nhật.' && <p className="inline-message error" role="alert">{message}</p>}
+          <p id="court-lock-confirmation-message">{activeCourtBookings.length > 0
+            ? `Sân này đang có ${activeCourtBookings.length} lượt đặt sắp tới. Khóa sân sẽ ngừng nhận lượt đặt mới; các phiếu hiện có vẫn giữ nguyên. Bạn có chắc chắn muốn khóa không?`
+            : 'Bạn có chắc chắn muốn khóa sân này không? Sân sẽ ngừng nhận lượt đặt mới.'}</p>
+          <div className="court-lock-confirmation-actions">
+            <button type="button" className="btn outline" onClick={() => setLockConfirmationOpen(false)}>Hủy</button>
+            <button type="button" className="btn primary" onClick={toggleCourtLock}>Xác nhận khóa</button>
+          </div>
+        </section>
+      </div>, document.body,
+    )}
 
     <form className="detail-card form-grid" onSubmit={addCourt}>
       <h2>Thêm sân mới</h2>

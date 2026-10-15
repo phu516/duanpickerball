@@ -1,0 +1,6 @@
+.product-image-editor{display:flex;flex-direction:column;gap:15px}
+.product-image-editor h2,.product-image-editor p{margin:0}
+.product-image-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.product-image-preview{width:180px;height:150px;border-radius:12px}
+.product-image-editor .btn{align-self:flex-start}
+@media(max-width:600px){.product-image-fields{grid-template-columns:1fr}}

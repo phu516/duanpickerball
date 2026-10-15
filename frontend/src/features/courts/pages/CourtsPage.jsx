@@ -8,6 +8,29 @@ import { bookingTimes } from '../../bookings/bookingTimes';
 import BookingFormPage from '../../bookings/pages/BookingFormPage';
 import './CourtsPage.css';
 
+function getDefaultBookingTimes() {
+  const timeParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+  const hour = Number(timeParts.find(part => part.type === 'hour')?.value ?? 6);
+  const minute = Number(timeParts.find(part => part.type === 'minute')?.value ?? 0);
+  const roundedMinutes = Math.ceil((hour * 60 + minute) / 30) * 30;
+  const openingMinutes = 6 * 60;
+  const latestStartMinutes = 21 * 60;
+  const startMinutes = roundedMinutes < openingMinutes || roundedMinutes > latestStartMinutes
+    ? openingMinutes
+    : roundedMinutes;
+  const startIndex = (startMinutes - openingMinutes) / 30;
+
+  return {
+    from: bookingTimes[startIndex],
+    to: bookingTimes[startIndex + 4]
+  };
+}
+
 function BookingDialog({ court, date, from, to, onClose }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
@@ -71,8 +94,9 @@ export default function CourtsPage() {
   const [court, setCourt] = useState(null);
   const [error, setError] = useState('');
   const [date, setDate] = useState(() => localDate(Date.now() + 86_400_000));
-  const [from, setFrom] = useState('17:00');
-  const [to, setTo] = useState('19:00');
+  const [defaultBookingTimes] = useState(getDefaultBookingTimes);
+  const [from, setFrom] = useState(defaultBookingTimes.from);
+  const [to, setTo] = useState(defaultBookingTimes.to);
   const [availability, setAvailability] = useState([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const [availabilityError, setAvailabilityError] = useState('');
@@ -98,6 +122,15 @@ export default function CourtsPage() {
     });
     return () => { active = false; };
   }, [date, availabilityRefresh]);
+
+  useEffect(() => {
+    function refreshWhenFocused() {
+      api('/courts').then(setCourts).catch(e => setError(e.message));
+      setAvailabilityRefresh(value => value + 1);
+    }
+    window.addEventListener('focus', refreshWhenFocused);
+    return () => window.removeEventListener('focus', refreshWhenFocused);
+  }, []);
 
   function changeFrom(value) {
     setFrom(value);
@@ -127,7 +160,7 @@ export default function CourtsPage() {
         <div className="court-card-title"><b className="court-code">{item.code}</b><div><h2>{item.name}</h2><p><MapPin size={16}/> {item.indoor ? 'Trong nhà' : 'Ngoài trời'} · {item.surface}</p></div></div>
         <div className="mini-court-art"><div className="mini-court-lines"><i/><i/><i/><i/></div><span>🟡</span></div>
         <div className="court-card-foot"><strong>Từ {money(item.startingPrice)} / giờ</strong><span className="court-select">{status === 'BOOKED' ? 'Đã đặt' : status === 'BLOCKED' ? 'Tạm khóa' : 'Chọn sân →'}</span></div>
-        {status && <p className="court-occupied-message">{status === 'BOOKED' ? 'Đã có người đặt sân này trong khung giờ đã chọn.' : 'Sân tạm khóa trong khung giờ đã chọn.'}</p>}
+        {status && <p className="court-occupied-message">{status === 'BOOKED' ? 'Khung giờ này đã có phiếu đặt.' : 'Sân tạm khóa trong khung giờ đã chọn.'}</p>}
       </button>;
     })}</div>
     {court && <BookingDialog court={court} date={date} from={from} to={to} onClose={closeDialog}/>}

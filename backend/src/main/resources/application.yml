@@ -8,6 +8,10 @@ server:
 spring:
   config:
     import: optional:file:./application-local.properties,optional:file:./backend/application-local.properties
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/picklezone?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:picklezone}
@@ -24,10 +28,13 @@ spring:
     enabled: true
 app:
   frontend-origin: ${PICKLE_FRONTEND_ORIGIN:http://localhost:5173}
+  payment:
+    provider: ${PICKLE_PAYMENT_PROVIDER:SANDBOX}
   booking:
     hold-minutes: 30
     arrival-grace-minutes: 30
     minimum-minutes: 120
     slot-minutes: 30
     deposit-percent: 30
+    deposit-override-amount: ${PICKLE_DEPOSIT_OVERRIDE_AMOUNT:0}
   guest-token-hours: 2160

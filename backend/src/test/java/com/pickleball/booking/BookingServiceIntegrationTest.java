@@ -2,6 +2,8 @@ package com.pickleball.booking;
 
 import com.pickleball.booking.dto.BookingRequest;
 import com.pickleball.booking.dto.BookingResponse;
+import com.pickleball.booking.entity.Booking;
+import com.pickleball.booking.repository.BookingRepository;
 import com.pickleball.booking.service.BookingService;
 import com.pickleball.common.exception.BusinessException;
 import com.pickleball.court.entity.Court;
@@ -10,6 +12,7 @@ import com.pickleball.court.repository.CourtPriceRuleRepository;
 import com.pickleball.court.repository.CourtRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("test")
 class BookingServiceIntegrationTest {
     @Autowired BookingService bookings;
+    @Autowired BookingRepository bookingRecords;
     @Autowired CourtRepository courts;
     @Autowired CourtPriceRuleRepository prices;
     private Court court;
@@ -50,7 +54,7 @@ class BookingServiceIntegrationTest {
         BusinessException conflict = assertThrows(BusinessException.class,
                 () -> bookings.create(request(court.getId(), start.plusHours(1), start.plusHours(3))));
         assertEquals("COURT_UNAVAILABLE", conflict.code());
-        BookingResponse cancelled = bookings.cancelHold(first.bookingCode(), first.guestAccessToken());
+        BookingResponse cancelled = bookings.adminCancel(first.id(), "Kiểm thử hủy phiếu");
         assertEquals("CANCELLED", cancelled.status());
         assertEquals("HOLD", bookings.getGuest(adjacent.bookingCode(), adjacent.guestAccessToken()).status());
     }
@@ -86,6 +90,26 @@ class BookingServiceIntegrationTest {
         BookingResponse retry = bookings.create(request, key);
         assertEquals(first.id(), retry.id());
         assertNotEquals(first.guestAccessToken(), retry.guestAccessToken());
+    }
+
+    @Test
+    void checkInIsAllowedOnlyFromThirtyMinutesBeforeStart() {
+        Booking tooEarly = confirmedBookingAt(LocalDateTime.now(ZoneOffset.UTC).plusMinutes(31));
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> bookings.checkIn(tooEarly.getId()));
+        assertEquals("ARRIVAL_TOO_EARLY", error.code());
+
+        Booking earlyArrival = confirmedBookingAt(LocalDateTime.now(ZoneOffset.UTC).plusMinutes(29));
+        assertEquals("CHECKED_IN", bookings.checkIn(earlyArrival.getId()).status());
+    }
+
+    private Booking confirmedBookingAt(LocalDateTime startAt) {
+        Booking booking = new Booking("PZ" + UUID.randomUUID().toString().replace("-", "").substring(0, 12),
+                court, "Khách thử", "0901234567", null, null, startAt, startAt.plusHours(2),
+                BigDecimal.valueOf(240_000), BigDecimal.valueOf(2_000), "{}", "{}",
+                LocalDateTime.now(ZoneOffset.UTC).plusMinutes(30), 120, 30);
+        booking.confirm();
+        return bookingRecords.saveAndFlush(booking);
     }
 
     private BookingRequest request(Long courtId, OffsetDateTime from, OffsetDateTime to) {

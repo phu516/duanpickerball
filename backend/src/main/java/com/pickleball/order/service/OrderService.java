@@ -16,6 +16,7 @@ import com.pickleball.order.entity.*;
 import com.pickleball.order.repository.*;
 import com.pickleball.product.entity.ProductVariant;
 import com.pickleball.product.repository.ProductFulfillmentRepository;
+import com.pickleball.payment.service.PaymentLinkLifecycleService;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,11 +37,13 @@ public class OrderService {
     private final GuestAccessService guestAccess;
     private final UserAccountRepository users;
     private final IdempotencyService idempotency;
+    private final PaymentLinkLifecycleService paymentLinks;
 
     public OrderService(OrderRepository orders, OrderItemRepository orderItems, CartService carts,
                         InventoryService inventory, ProductFulfillmentRepository fulfillment,
                         BookingService bookings, GuestAccessService guestAccess,
-                        UserAccountRepository users, IdempotencyService idempotency) {
+                        UserAccountRepository users, IdempotencyService idempotency,
+                        PaymentLinkLifecycleService paymentLinks) {
         this.orders = orders;
         this.orderItems = orderItems;
         this.carts = carts;
@@ -50,6 +53,7 @@ public class OrderService {
         this.guestAccess = guestAccess;
         this.users = users;
         this.idempotency = idempotency;
+        this.paymentLinks = paymentLinks;
     }
 
     @Transactional(readOnly = true)
@@ -152,6 +156,7 @@ public class OrderService {
         };
         if (next == null) throw conflict("INVALID_ORDER_TRANSITION", "Không thể đổi trạng thái đơn theo thao tác này");
         if (next.equals("CANCELLED")) inventory.release(orderItems.findByOrderId(id));
+        if (next.equals("CANCELLED")) paymentLinks.cancelForOrder(id);
         if (next.equals("COMPLETED")) inventory.fulfill(orderItems.findByOrderId(id));
         order.changeStatus(next);
         return map(order, null);
@@ -256,6 +261,7 @@ public class OrderService {
         }
         inventory.release(orderItems.findByOrderId(order.getId()));
         order.changeStatus("CANCELLED");
+        paymentLinks.cancelForOrder(order.getId());
     }
 
     private OrderResponse map(StoreOrder order, String token) {

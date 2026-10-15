@@ -1,0 +1,10 @@
+.hero-event { min-width: 0; background: #fff; border: 1px solid #d8e7f0; border-radius: 24px; overflow: hidden; box-shadow: 18px 24px 0 #cce5ff, 0 25px 50px #00547d22; }
+.hero-event-image { height: 280px; background: #e3f1fc; display: grid; place-items: center; }
+.hero-event-image img { width: 100%; height: 100%; object-fit: contain; }
+.hero-event-info { padding: 20px 24px 22px; }
+.hero-event-label { color: #006194; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+.hero-event-info h2 { font-size: 23px; line-height: 1.25; margin: 8px 0 6px; }
+.hero-event-info time { display: block; color: #006194; font-size: 13px; font-weight: 700; }
+.hero .hero-event-info p { font-size: 13px; line-height: 1.5; margin: 8px 0; color: #526676; }
+.hero-event-info a { display: inline-block; margin-top: 2px; color: #006194; font-size: 13px; font-weight: 800; }
+@media (max-width: 600px) { .hero-event-image { height: 230px; } .hero-event-info { padding: 18px; } }

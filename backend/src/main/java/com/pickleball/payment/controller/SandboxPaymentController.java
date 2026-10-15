@@ -3,10 +3,12 @@ package com.pickleball.payment.controller;
 import com.pickleball.payment.dto.PaymentResponse;
 import com.pickleball.payment.service.PaymentService;
 import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @Profile("dev")
+@ConditionalOnProperty(name = "app.payment.provider", havingValue = "SANDBOX", matchIfMissing = true)
 @RequestMapping("/api/v1/dev/payments")
 public class SandboxPaymentController {
     private final PaymentService payments;

@@ -26,15 +26,18 @@ public class CourtService {
     private final CourtBlockRepository blocks;
     private final BookingRepository bookings;
     private final BookingPolicyService policies;
+    private final BigDecimal depositOverrideAmount;
 
     public CourtService(CourtRepository courts, CourtPriceRuleRepository prices,
                         CourtBlockRepository blocks, BookingRepository bookings,
-                        BookingPolicyService policies) {
+                        BookingPolicyService policies,
+                        @Value("${app.booking.deposit-override-amount:0}") BigDecimal depositOverrideAmount) {
         this.courts = courts;
         this.prices = prices;
         this.blocks = blocks;
         this.bookings = bookings;
         this.policies = policies;
+        this.depositOverrideAmount = depositOverrideAmount;
     }
 
     @Transactional(readOnly = true)
@@ -122,6 +125,9 @@ public class CourtService {
         }
         BigDecimal deposit = total.multiply(BigDecimal.valueOf(depositPercent))
                 .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+        if (depositOverrideAmount.signum() > 0) {
+            deposit = depositOverrideAmount.min(total);
+        }
         return new BookingQuote(courtId, start, end, total, deposit, total.subtract(deposit), "VND", segments);
     }
 
@@ -178,12 +184,6 @@ public class CourtService {
     public CourtResponse lockCourt(Long id) {
         Court court = lock(id);
         if (court.isLocked()) return map(court);
-        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-        boolean upcomingBooking = bookings.findByCourtIdAndStartAtLessThanAndEndAtGreaterThan(
-                id, now.plusYears(50), now).stream().anyMatch(booking -> booking.blocks(now));
-        if (upcomingBooking) throw new BusinessException(HttpStatus.CONFLICT,
-                "COURT_HAS_UPCOMING_BOOKINGS",
-                "Sân còn phiếu đặt sắp tới. Hãy xử lý các phiếu này trước khi khóa sân.");
         court.setLocked(true);
         return map(court);
     }

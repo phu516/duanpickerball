@@ -30,6 +30,8 @@ public class BookingCancellationRequest {
     public String getReason() { return reason; }
     public String getStatus() { return status; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public String getReviewReason() { return reviewReason; }
+    public LocalDateTime getReviewedAt() { return reviewedAt; }
 
     public void review(Long actorId, String nextStatus, String reason) {
         this.reviewedBy = actorId;

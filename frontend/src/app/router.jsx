@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
 
 export function useRoute() {
-  const [route, setRoute] = useState(location.hash.slice(1) || '/');
+  const [route, setRoute] = useState(() => {
+    if (location.hash) return location.hash.slice(1).split('?')[0];
+    const params = new URLSearchParams(location.search);
+    const type = params.get('paymentType');
+    const code = params.get('resourceCode');
+    if (['booking', 'order'].includes(type) && /^[A-Za-z0-9]+$/.test(code || '')) {
+      return `/${type === 'booking' ? 'bookings' : 'orders'}/${code}`;
+    }
+    return '/';
+  });
   useEffect(() => {
     const update = () => setRoute(location.hash.slice(1) || '/');
     window.addEventListener('hashchange', update);

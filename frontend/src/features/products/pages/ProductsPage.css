@@ -1,0 +1,6 @@
+.product-card .product-photo{height:210px}
+.product-card .product-body{display:flex;flex-direction:column;gap:7px}
+.product-card .product-body h3{margin:3px 0 0}
+.product-card .product-body p{margin:0 0 5px}
+.product-card .product-body select{margin-bottom:4px}
+.product-card .product-bottom{margin-top:auto}

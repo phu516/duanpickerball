@@ -58,4 +58,16 @@ public class ProductController {
             @Valid @RequestBody ProductService.VariantUpdate request) {
         return products.updateVariant(id, request);
     }
+
+    @PutMapping("/admin/product-variants/{id}/image")
+    public ProductResponse variantImage(@PathVariable Long id, @RequestBody VariantImageRequest request) {
+        return products.updateVariantImage(id, request.imageUrl());
+    }
+
+    public record VariantImageRequest(String imageUrl) {}
+
+    @PutMapping("/admin/products/{id}/image")
+    public ProductResponse image(@PathVariable Long id, @RequestBody VariantImageRequest request) {
+        return products.updateImage(id, request.imageUrl());
+    }
 }

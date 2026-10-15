@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/guest")
@@ -26,6 +27,11 @@ public class GuestPaymentController {
             @RequestHeader("X-Guest-Access-Token") String token) {
         return payments.bookingPayment(code, token, id);
     }
+    @GetMapping("/bookings/{code}/payments")
+    public List<PaymentResponse> bookingPayments(@PathVariable String code,
+            @RequestHeader("X-Guest-Access-Token") String token) {
+        return payments.bookingPayments(code, token);
+    }
     @PostMapping("/orders/{code}/payments")
     @ResponseStatus(HttpStatus.CREATED)
     public PaymentResponse forOrder(@PathVariable String code,
@@ -36,6 +42,11 @@ public class GuestPaymentController {
     public PaymentResponse orderPayment(@PathVariable String code, @PathVariable Long id,
             @RequestHeader("X-Guest-Access-Token") String token) {
         return payments.orderPayment(code, token, id);
+    }
+    @GetMapping("/orders/{code}/payments")
+    public List<PaymentResponse> orderPayments(@PathVariable String code,
+            @RequestHeader("X-Guest-Access-Token") String token) {
+        return payments.orderPayments(code, token);
     }
     @GetMapping("/bookings/{code}/refunds")
     public java.util.List<RefundResponse> bookingRefunds(@PathVariable String code,

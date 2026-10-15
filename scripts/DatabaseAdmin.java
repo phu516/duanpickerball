@@ -1,6 +1,7 @@
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.sql.*;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +34,12 @@ public class DatabaseAdmin {
             try (Connection connection = mysql(root)) { inspect(connection, "MySQL picklezone"); }
         } else if (args[0].equals("inspect-docker")) {
             try (Connection connection = docker(root)) { inspect(connection, "MySQL docker source"); }
+        } else if (args[0].equals("backup-docker")) {
+            Path backup = root.resolve("backend/data-transfer/docker-before-photo-migration-" +
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".sql");
+            Files.createDirectories(backup.getParent());
+            try (Connection connection = docker(root)) { dumpMysql(connection, backup); }
+            System.out.println("Backup: " + backup);
         } else if (args[0].equals("discover-mysql")) {
             try (Connection connection = mysql(root, true);
                  ResultSet databases = connection.getMetaData().getCatalogs()) {
@@ -44,6 +51,8 @@ public class DatabaseAdmin {
             resetAdmin(root);
         } else if (args[0].equals("verify")) {
             try (Connection connection = mysql(root)) { verify(connection); }
+        } else if (args[0].equals("cancel-known-overlap")) {
+            cancelKnownOverlap(root);
         } else {
             throw new IllegalArgumentException("Unknown database command");
         }
@@ -394,6 +403,77 @@ public class DatabaseAdmin {
         return report.toString();
     }
 
+    /** One-time, exact-code cleanup of the overlapping test bookings authorized by the project owner. */
+    static void cancelKnownOverlap(Path root) throws Exception {
+        String firstCode = "PZA988214D9272";
+        String secondCode = "PZCD3F49B9E827";
+        Path backup = root.resolve("backend/data-transfer/overlap-cleanup-" +
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")));
+        Files.createDirectories(backup);
+        try (Connection source = mysql(root)) {
+            dumpMysql(source, backup.resolve("picklezone-before-cancel.sql"));
+        }
+        try (Connection connection = mysql(root)) {
+            connection.setAutoCommit(false);
+            try {
+                var matches = rows(connection, "SELECT b.id,b.booking_code,b.court_id,c.code AS court_code,b.start_at,b.end_at,b.status " +
+                                "FROM bookings b JOIN courts c ON c.id=b.court_id WHERE b.booking_code IN (?,?) FOR UPDATE",
+                        firstCode, secondCode);
+                Map<String, Map<String, Object>> byCode = new HashMap<>();
+                for (var booking : matches) byCode.put(booking.get("booking_code").toString(), booking);
+                var first = byCode.get(firstCode);
+                var second = byCode.get(secondCode);
+                if (matches.size() != 2 || first == null || second == null)
+                    throw new IllegalStateException("Expected both overlapping test bookings exactly once");
+                if (!"S01".equals(first.get("court_code")) || !"S01".equals(second.get("court_code"))
+                        || !"CHECKED_IN".equals(first.get("status")) || !"CONFIRMED".equals(second.get("status"))
+                        || !LocalDate.from((LocalDateTime) first.get("start_at")).equals(LocalDate.parse("2026-10-06"))
+                        || !LocalDate.from((LocalDateTime) second.get("start_at")).equals(LocalDate.parse("2026-10-06"))
+                        || !Duration.between((LocalDateTime) first.get("start_at"), (LocalDateTime) first.get("end_at")).equals(Duration.ofHours(2))
+                        || !Duration.between((LocalDateTime) second.get("start_at"), (LocalDateTime) second.get("end_at")).equals(Duration.ofHours(2)))
+                    throw new IllegalStateException("Booking details changed; no booking was cancelled. Current rows: " + byCode);
+                if (!((LocalDateTime) first.get("start_at")).isBefore((LocalDateTime) second.get("end_at"))
+                        || !((LocalDateTime) first.get("end_at")).isAfter((LocalDateTime) second.get("start_at")))
+                    throw new IllegalStateException("The two bookings no longer overlap");
+                LocalDateTime overlapStart = ((LocalDateTime) first.get("start_at")).isAfter((LocalDateTime) second.get("start_at"))
+                        ? (LocalDateTime) first.get("start_at") : (LocalDateTime) second.get("start_at");
+                LocalDateTime overlapEnd = ((LocalDateTime) first.get("end_at")).isBefore((LocalDateTime) second.get("end_at"))
+                        ? (LocalDateTime) first.get("end_at") : (LocalDateTime) second.get("end_at");
+                if (!Duration.between(overlapStart, overlapEnd).equals(Duration.ofMinutes(30)))
+                    throw new IllegalStateException("The two bookings no longer overlap by exactly 30 minutes");
+                long actorId = ((Number) rows(connection,
+                        "SELECT id FROM users WHERE username='admin' AND role='ADMIN'").getFirst().get("id")).longValue();
+                String reason = "Hủy hai phiếu test bị chồng giờ theo yêu cầu chủ dự án; giữ lịch sử thanh toán, không tự hoàn tiền.";
+                StringBuilder report = new StringBuilder("Target: localhost:3306/picklezone\nBackup: ")
+                        .append(backup).append('\n');
+                for (String code : List.of(firstCode, secondCode)) {
+                    var booking = byCode.get(code);
+                    report.append(code).append(" old_status=").append(booking.get("status"));
+                    var paymentGroups = rows(connection, "SELECT status,COUNT(*) AS payment_count,SUM(amount) AS amount " +
+                                    "FROM payments WHERE booking_id=? GROUP BY status", booking.get("id"));
+                    for (var payment : paymentGroups)
+                        report.append(" payment_").append(payment.get("status")).append("_count=")
+                                .append(payment.get("payment_count")).append("_amount=").append(payment.get("amount"));
+                    report.append('\n');
+                    execute(connection, "UPDATE bookings SET status='CANCELLED',cancelled_at=UTC_TIMESTAMP(6)," +
+                                    "cancel_reason=?,updated_at=UTC_TIMESTAMP(6) WHERE id=? AND status=?",
+                            reason, booking.get("id"), booking.get("status"));
+                    execute(connection, "INSERT INTO audit_logs(actor_id,action,resource_type,resource_id,reason,created_at) " +
+                                    "VALUES(?, 'BOOKING_CANCELLED', 'BOOKING', ?, ?, UTC_TIMESTAMP(6))",
+                            actorId, booking.get("id"), reason);
+                }
+                connection.commit();
+                report.append("Cancelled both exact test bookings; payment history preserved; no refund created.\n");
+                Files.writeString(backup.resolve("cancellation-report.txt"), report, StandardCharsets.UTF_8);
+                System.out.print(report);
+            } catch (Exception error) {
+                connection.rollback();
+                Files.writeString(backup.resolve("cancellation-report.txt"), "ROLLED BACK: " + error.getMessage(), StandardCharsets.UTF_8);
+                throw error;
+            }
+        }
+    }
+
     static void resetAdmin(Path root) throws Exception {
         byte[] random = new byte[10];
         new SecureRandom().nextBytes(random);
@@ -436,6 +516,13 @@ public class DatabaseAdmin {
                  ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM `" + table + "`")) {
                 rows.next();
                 System.out.println(table + "=" + rows.getLong(1));
+            }
+        }
+        if (tables.contains("products")) {
+            try (Statement statement = connection.createStatement();
+                 ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM products WHERE image_url IS NULL OR TRIM(image_url) = ''")) {
+                rows.next();
+                System.out.println("products_missing_image_urls=" + rows.getLong(1));
             }
         }
         if (tables.contains("users")) {

@@ -13,7 +13,7 @@ public class Product {
     @Column(nullable = false) private String name;
     @Column(nullable = false) private String brand;
     private String description;
-    private String imageUrl;
+    @Column(length = 500) private String imageUrl;
     @Column(nullable = false) private String emoji;
     @Column(nullable = false) private boolean active;
     @Column(nullable = false) private LocalDateTime createdAt;
@@ -36,6 +36,7 @@ public class Product {
     public String getBrand() { return brand; }
     public String getDescription() { return description; }
     public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public String getEmoji() { return emoji; }
     public boolean isActive() { return active; }
 
