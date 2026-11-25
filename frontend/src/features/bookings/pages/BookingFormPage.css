@@ -7,6 +7,10 @@
   grid-column: 1 / -1;
 }
 
+.booking-form .booking-date-field { flex: 1; min-width: 155px; }
+.booking-form .booking-date-field .date-time-trigger { min-height: 44px; font-size: 12px; }
+.booking-form .booking-date-field .booking-field-error { display: block; margin-top: 4px; }
+
 .booking-field-error {
   color: #aa4b20;
   font-size: 11px;

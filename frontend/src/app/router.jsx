@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 export function useRoute() {
   const [route, setRoute] = useState(() => {
-    if (location.hash) return location.hash.slice(1).split('?')[0];
+    if (location.hash) return location.hash.slice(1);
     const params = new URLSearchParams(location.search);
     const type = params.get('paymentType');
     const code = params.get('resourceCode');

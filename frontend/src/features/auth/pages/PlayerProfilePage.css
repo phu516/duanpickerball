@@ -1,0 +1,17 @@
+.player-profile-page { max-width: 820px; }
+.player-profile-page > h1 { margin: 8px 0 24px; }
+.player-profile-card, .player-profile-rank { margin-top: 18px; padding: 24px; border: 1px solid #dce6e9; border-radius: 16px; background: #fff; box-shadow: 0 8px 28px rgb(19 52 69 / 6%); }
+.player-profile-identity, .player-profile-rank-heading { display: flex; align-items: center; gap: 14px; color: #173c50; }
+.player-profile-identity h2, .player-profile-rank-heading h2 { margin: 0; }
+.player-profile-identity p, .player-profile-phone { margin: 5px 0 0; color: #60737d; }
+.player-profile-rank { background: linear-gradient(135deg, #f3faf7, #fff); }
+.player-profile-rank-heading > div > span { color: #60737d; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+.player-profile-rank-heading h2 { margin-top: 6px; }
+.player-profile-rank-heading .elo-rank { padding: 7px 13px; font-size: 16px; }
+.player-profile-stats { display: flex; gap: 14px; margin-top: 24px; }
+.player-profile-stats p { display: grid; gap: 4px; min-width: 150px; margin: 0; padding: 14px 18px; border-radius: 12px; background: #eef5f7; }
+.player-profile-stats strong { color: #075f8d; font-size: 24px; }
+.player-profile-stats span, .player-profile-note { color: #60737d; font-size: 13px; }
+.player-profile-no-elo p { color: #60737d; }
+.player-profile-no-elo .btn { display: inline-flex; margin-top: 8px; }
+@media (max-width: 560px) { .player-profile-stats { flex-direction: column; } }

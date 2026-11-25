@@ -6,6 +6,17 @@ server:
         http-only: true
         same-site: lax
 spring:
+  mail:
+    host: ${PICKLE_SMTP_HOST:}
+    port: ${PICKLE_SMTP_PORT:587}
+    username: ${PICKLE_SMTP_USERNAME:}
+    password: ${PICKLE_SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${PICKLE_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${PICKLE_SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   config:
     import: optional:file:./application-local.properties,optional:file:./backend/application-local.properties
   servlet:
@@ -27,6 +38,8 @@ spring:
   flyway:
     enabled: true
 app:
+  mail-from: ${PICKLE_MAIL_FROM:}
+  otp-secret: ${PICKLE_OTP_SECRET:}
   frontend-origin: ${PICKLE_FRONTEND_ORIGIN:http://localhost:5173}
   payment:
     provider: ${PICKLE_PAYMENT_PROVIDER:SANDBOX}

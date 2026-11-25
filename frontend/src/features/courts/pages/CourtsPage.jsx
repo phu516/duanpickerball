@@ -6,7 +6,13 @@ import { localDate, money } from '../../../shared/utils/format';
 import { guestBookingApi } from '../../bookings/api/guestBookingApi';
 import { bookingTimes } from '../../bookings/bookingTimes';
 import BookingFormPage from '../../bookings/pages/BookingFormPage';
+import DateTimePicker from '../../../shared/components/DateTimePicker';
 import './CourtsPage.css';
+
+const tournamentMoment = (date, time) => {
+  const [year, month, day] = date.split('-');
+  return `${time.slice(0, 5)} ngày ${day}/${month}/${year}`;
+};
 
 function getDefaultBookingTimes() {
   const timeParts = new Intl.DateTimeFormat('en-GB', {
@@ -101,6 +107,7 @@ export default function CourtsPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const [availabilityError, setAvailabilityError] = useState('');
   const [availabilityRefresh, setAvailabilityRefresh] = useState(0);
+  const [tournamentSchedule, setTournamentSchedule] = useState(null);
   const closeDialog = useCallback(() => {
     setCourt(null);
     setAvailabilityRefresh(value => value + 1);
@@ -124,6 +131,16 @@ export default function CourtsPage() {
   }, [date, availabilityRefresh]);
 
   useEffect(() => {
+    let active = true;
+    api('/tournament/schedule').then(schedule => {
+      if (active) setTournamentSchedule(schedule);
+    }).catch(() => {
+      if (active) setTournamentSchedule(null);
+    });
+    return () => { active = false; };
+  }, [availabilityRefresh]);
+
+  useEffect(() => {
     function refreshWhenFocused() {
       api('/courts').then(setCourts).catch(e => setError(e.message));
       setAvailabilityRefresh(value => value + 1);
@@ -140,17 +157,23 @@ export default function CourtsPage() {
 
   const startAt = new Date(`${date}T${from}:00+07:00`).getTime();
   const endAt = new Date(`${date}T${to}:00+07:00`).getTime();
+  const tournamentOverlaps = tournamentSchedule && `${date}T${from}` < `${tournamentSchedule.endsOn}T${tournamentSchedule.endsTime.slice(0, 5)}`
+    && `${date}T${to}` > `${tournamentSchedule.startsOn}T${tournamentSchedule.startsTime.slice(0, 5)}`;
 
   return <div className="container section"><div className="eyebrow">PICKLEZONE COURTS</div><h1>Chọn sân cho trận tiếp theo</h1><p>Mỗi phiếu đặt một sân; bạn có thể tạo bao nhiêu phiếu tùy thích.</p>
     {error && <p className="inline-message error">{error}</p>}
     <div className="court-availability-controls">
       <div><h2>Kiểm tra sân còn trống</h2><p>Chọn ngày và khung giờ muốn chơi trước khi chọn sân.</p></div>
       <div className="court-availability-fields">
-        <label>Ngày chơi<input type="date" min={localDate(new Date())} value={date} onChange={event => setDate(event.target.value)}/></label>
+        <DateTimePicker id="court-search-date" label="Ngày chơi" dateOnly required minDate={localDate(new Date())} value={date} onChange={setDate}/>
         <label>Bắt đầu<select value={from} onChange={event => changeFrom(event.target.value)}>{bookingTimes.slice(0, -4).map(time => <option key={time}>{time}</option>)}</select></label>
         <label>Kết thúc<select value={to} onChange={event => setTo(event.target.value)}>{bookingTimes.slice(bookingTimes.indexOf(from) + 4).map(time => <option key={time}>{time}</option>)}</select></label>
       </div>
     </div>
+    {tournamentOverlaps && <div className="tournament-court-notice" role="status">
+      <strong>Đang có giải đấu Pickleball</strong>
+      <p>Giải diễn ra từ {tournamentMoment(tournamentSchedule.startsOn, tournamentSchedule.startsTime)} đến {tournamentMoment(tournamentSchedule.endsOn, tournamentSchedule.endsTime)}. Toàn bộ sân tạm khóa trong thời gian này; vui lòng chọn khung giờ khác.</p>
+    </div>}
     {availabilityLoading && <p className="inline-message" role="status">Đang kiểm tra lịch sân...</p>}
     {availabilityError && <p className="inline-message error" role="alert">Không tải được lịch sân: {availabilityError} <button type="button" className="btn text" onClick={() => setAvailabilityRefresh(value => value + 1)}>Thử lại</button></p>}
     <div className="court-grid">{courts.map(item => {

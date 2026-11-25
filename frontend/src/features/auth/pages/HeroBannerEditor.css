@@ -9,6 +9,10 @@
 .hero-banner-fields .inline-message { margin: 0; }
 .hero-banner-fields .btn { justify-self: start; }
 .hero-banner-preview { display: grid; gap: 12px; padding: 18px; border-radius: 16px; background: #eaf4ff; color: #18394e; }
+.hero-banner-status { padding: 10px 12px; border-radius: 10px; background: #fff; font-size: 14px; line-height: 1.45; }
+.hero-banner-status.active { color: #176b3a; background: #e8f7ee; }
+.hero-banner-status.scheduled { color: #815400; background: #fff4d6; }
+.hero-banner-status.expired, .hero-banner-status.disabled { color: #8a3c35; background: #fff0ed; }
 .hero-banner-preview-frame { aspect-ratio: 3 / 2; display: grid; place-items: center; overflow: hidden; border-radius: 13px; background: #d2e6f5; }
 .hero-banner-preview-frame img { width: 100%; height: 100%; object-fit: contain; }
 .hero-banner-preview > span { color: #516776; font-size: 13px; line-height: 1.5; }

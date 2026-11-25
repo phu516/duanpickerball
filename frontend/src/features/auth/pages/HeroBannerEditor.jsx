@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, apiUrl } from '../../../shared/api/apiClient';
+import DateTimePicker from '../../../shared/components/DateTimePicker';
 import './HeroBannerEditor.css';
 
 const empty = {
@@ -7,8 +8,14 @@ const empty = {
   linkUrl: '', enabled: true,
 };
 const localInput = value => value?.slice(0, 16) || '';
+const visibilityMessages = {
+  active: 'Đang hiển thị trên trang chủ.',
+  scheduled: 'Đã lưu nhưng chưa đến thời gian bắt đầu hiển thị.',
+  expired: 'Đã hết thời gian hiển thị.',
+  disabled: 'Banner đang tắt. Bật banner để hiển thị trên trang chủ.',
+};
 
-export default function HeroBannerEditor() {
+export default function HeroBannerEditor({ onSessionExpired = () => {} }) {
   const [draft, setDraft] = useState(empty);
   const [saved, setSaved] = useState(null);
   const [file, setFile] = useState(null);
@@ -27,7 +34,10 @@ export default function HeroBannerEditor() {
         visibleUntil: localInput(data.visibleUntil),
         linkUrl: data.linkUrl || '', enabled: data.enabled,
       });
-    }).catch(err => setError(err.message));
+    }).catch(err => {
+      if (err.status === 401) onSessionExpired();
+      else setError(err.message);
+    });
   }, []);
 
   useEffect(() => {
@@ -44,6 +54,9 @@ export default function HeroBannerEditor() {
     setError(''); setMessage('');
     if (!saved && !file) { setError('Vui lòng chọn ảnh banner.'); return; }
     if (file && file.size > 5 * 1024 * 1024) { setError('Ảnh phải nhỏ hơn 5 MB.'); return; }
+    if (!draft.eventStartAt || !draft.visibleFrom || !draft.visibleUntil) {
+      setError('Vui lòng chọn đầy đủ ngày giờ diễn ra và thời gian hiển thị.'); return;
+    }
     if (draft.visibleUntil <= draft.visibleFrom) {
       setError('Thời gian kết thúc hiển thị phải sau thời gian bắt đầu.'); return;
     }
@@ -56,7 +69,10 @@ export default function HeroBannerEditor() {
       setSaved(result);
       setFile(null);
       setMessage('Đã lưu banner trang chủ.');
-    } catch (err) { setError(err.message); }
+    } catch (err) {
+      if (err.status === 401) onSessionExpired();
+      else setError(err.message);
+    }
     finally { setSaving(false); }
   }
 
@@ -68,10 +84,10 @@ export default function HeroBannerEditor() {
       <div className="hero-banner-fields">
         <label>Tên giải đấu<input required maxLength="120" value={draft.title} onChange={e => update('title', e.target.value)} placeholder="Ví dụ: Giải PickleZone Open 2026"/></label>
         <label>Mô tả ngắn<textarea required rows="3" maxLength="300" value={draft.summary} onChange={e => update('summary', e.target.value)} placeholder="Thông tin nổi bật dành cho người xem"/></label>
-        <label>Ngày giờ diễn ra<input required type="datetime-local" value={draft.eventStartAt} onChange={e => update('eventStartAt', e.target.value)}/></label>
+        <DateTimePicker id="banner-event-start" label="Ngày giờ diễn ra" required value={draft.eventStartAt} onChange={value => update('eventStartAt', value)}/>
         <div className="hero-banner-dates">
-          <label>Hiển thị từ<input required type="datetime-local" value={draft.visibleFrom} onChange={e => update('visibleFrom', e.target.value)}/></label>
-          <label>Hiển thị đến<input required type="datetime-local" value={draft.visibleUntil} onChange={e => update('visibleUntil', e.target.value)}/></label>
+          <DateTimePicker id="banner-visible-from" label="Hiển thị từ" required value={draft.visibleFrom} onChange={value => update('visibleFrom', value)}/>
+          <DateTimePicker id="banner-visible-until" label="Hiển thị đến" required value={draft.visibleUntil} onChange={value => update('visibleUntil', value)}/>
         </div>
         <label>Liên kết xem chi tiết (không bắt buộc)<input type="url" maxLength="500" value={draft.linkUrl} onChange={e => update('linkUrl', e.target.value)} placeholder="https://example.com/giai-dau"/></label>
         <label>Ảnh giải đấu (PNG hoặc JPEG, tối đa 5 MB)<input type="file" accept="image/png,image/jpeg" onChange={e => setFile(e.target.files?.[0] || null)}/></label>
@@ -83,6 +99,9 @@ export default function HeroBannerEditor() {
       </div>
       <div className="hero-banner-preview">
         <b>Xem trước ảnh bên phải hero</b>
+        {saved && <div className={`hero-banner-status ${saved.visibilityStatus}`} role="status">
+          {visibilityMessages[saved.visibilityStatus] || 'Chưa xác định được trạng thái banner.'}
+        </div>}
         <div className="hero-banner-preview-frame">{image ? <img src={image} alt="Bản xem trước banner giải đấu"/> : <span>Chưa chọn ảnh</span>}</div>
         <strong>{draft.title || 'Tên giải đấu'}</strong>
         <span>{draft.summary || 'Mô tả ngắn của giải đấu'}</span>

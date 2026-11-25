@@ -7,6 +7,7 @@ import com.pickleball.court.dto.CourtResponse;
 import com.pickleball.court.entity.*;
 import com.pickleball.court.repository.*;
 import com.pickleball.setting.service.BookingPolicyService;
+import com.pickleball.tournament.service.TournamentService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.*;
@@ -26,17 +27,19 @@ public class CourtService {
     private final CourtBlockRepository blocks;
     private final BookingRepository bookings;
     private final BookingPolicyService policies;
+    private final TournamentService tournaments;
     private final BigDecimal depositOverrideAmount;
 
     public CourtService(CourtRepository courts, CourtPriceRuleRepository prices,
                         CourtBlockRepository blocks, BookingRepository bookings,
-                        BookingPolicyService policies,
+                        BookingPolicyService policies, TournamentService tournaments,
                         @Value("${app.booking.deposit-override-amount:0}") BigDecimal depositOverrideAmount) {
         this.courts = courts;
         this.prices = prices;
         this.blocks = blocks;
         this.bookings = bookings;
         this.policies = policies;
+        this.tournaments = tournaments;
         this.depositOverrideAmount = depositOverrideAmount;
     }
 
@@ -77,6 +80,7 @@ public class CourtService {
         }
         Instant fromInstant = start.toInstant();
         Instant toInstant = end.toInstant();
+        tournaments.assertBookingAllowed(start.toZonedDateTime(), end.toZonedDateTime());
         long minutes = Duration.between(fromInstant, toInstant).toMinutes();
         if (minutes < minimumMinutes || minutes % slotMinutes != 0) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_DURATION",
@@ -138,6 +142,12 @@ public class CourtService {
         LocalDateTime to = date.plusDays(1).atStartOfDay(LOCAL_ZONE).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
         List<AvailabilitySlot> result = new ArrayList<>();
         for (Court court : selected) {
+            var tournamentInterval = tournaments.blockedInterval(date);
+            if (tournamentInterval != null) {
+                result.add(new AvailabilitySlot(court.getId(),
+                        tournamentInterval[0].withZoneSameInstant(ZoneOffset.UTC).toOffsetDateTime(),
+                        tournamentInterval[1].withZoneSameInstant(ZoneOffset.UTC).toOffsetDateTime(), "BLOCKED"));
+            }
             if (court.isLocked()) {
                 result.add(new AvailabilitySlot(court.getId(), from.atOffset(ZoneOffset.UTC),
                         to.atOffset(ZoneOffset.UTC), "BLOCKED"));

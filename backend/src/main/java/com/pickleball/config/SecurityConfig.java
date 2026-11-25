@@ -2,13 +2,14 @@ package com.pickleball.config;
 
 import com.pickleball.auth.repository.UserAccountRepository;
 import com.pickleball.common.response.ApiError;
+import jakarta.servlet.DispatcherType;
 import tools.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
@@ -16,12 +17,22 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
+    @Bean
+    public SessionRegistry sessionRegistry() { return new SessionRegistryImpl(); }
+
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() { return new HttpSessionEventPublisher(); }
+
     @Bean
     public PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
 
@@ -30,13 +41,18 @@ public class SecurityConfig {
         return username -> users.findByUsername(username)
                 .map(account -> User.withUsername(account.getUsername())
                         .password(account.getPasswordHash())
-                        .roles(account.getRole())
+                        .roles(normalizeRole(account.getRole()))
                         .disabled(!account.isEnabled()).build())
                 .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException(username));
     }
 
+    private static String normalizeRole(String role) {
+        String normalized = role == null ? "" : role.trim().toUpperCase(Locale.ROOT);
+        return normalized.startsWith("ROLE_") ? normalized.substring("ROLE_".length()) : normalized;
+    }
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper,
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper, SessionRegistry sessions,
                                                    @Value("${app.frontend-origin}") String origin) throws Exception {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(java.util.List.of(origin));
@@ -47,11 +63,18 @@ public class SecurityConfig {
         corsSource.registerCorsConfiguration("/**", cors);
 
         http.cors(c -> c.configurationSource(corsSource))
+                .sessionManagement(session -> session.maximumSessions(-1).sessionRegistry(sessions))
                 .csrf(c -> c.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .ignoringRequestMatchers("/api/v1/webhooks/payos"))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // Render the original HTTP error instead of replacing it
+                        // with a 403 when the servlet container dispatches to /error.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        // Keep already-authenticated sessions working if their authority was
+                        // created from a lowercase legacy role before normalizeRole was applied.
+                        .requestMatchers("/api/v1/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_admin")
                         .requestMatchers("/api/v1/staff/**").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers("/api/v1/auth/me", "/api/v1/elo/**").hasRole("PLAYER")
                         .requestMatchers("/api/v1/**").permitAll()
                         .anyRequest().denyAll())
                 .formLogin(form -> form.loginProcessingUrl("/api/v1/auth/login")
@@ -79,7 +102,12 @@ public class SecurityConfig {
                             response.setStatus(403);
                             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                            mapper.writeValue(response.getWriter(), ApiError.of("ACCESS_DENIED", "Không đủ quyền"));
+                            if (exception instanceof CsrfException) {
+                                mapper.writeValue(response.getWriter(), ApiError.of("CSRF_INVALID",
+                                        "Phiên bảo mật đã hết hạn. Đang thử lại yêu cầu."));
+                            } else {
+                                mapper.writeValue(response.getWriter(), ApiError.of("ACCESS_DENIED", "Không đủ quyền"));
+                            }
                         }));
         return http.build();
     }

@@ -113,9 +113,20 @@ public class HeroBannerController {
 
     private Banner savedBanner() {
         return jdbc.query("select title, summary, event_start_at, visible_from, visible_until, link_url, enabled, updated_at from hero_banner where id=1",
-                rs -> rs.next() ? new Banner(rs.getString(1), rs.getString(2), rs.getTimestamp(3).toLocalDateTime().toString(),
-                        rs.getTimestamp(4).toLocalDateTime().toString(), rs.getTimestamp(5).toLocalDateTime().toString(),
-                        rs.getString(6), rs.getBoolean(7), rs.getTimestamp(8).toLocalDateTime().toString()) : null);
+                rs -> {
+                    if (!rs.next()) return null;
+                    LocalDateTime eventStartAt = rs.getObject(3, LocalDateTime.class);
+                    LocalDateTime visibleFrom = rs.getObject(4, LocalDateTime.class);
+                    LocalDateTime visibleUntil = rs.getObject(5, LocalDateTime.class);
+                    boolean enabled = rs.getBoolean(7);
+                    LocalDateTime now = LocalDateTime.now(LOCAL_ZONE);
+                    String visibilityStatus = !enabled ? "disabled"
+                            : now.isBefore(visibleFrom) ? "scheduled"
+                            : now.isAfter(visibleUntil) ? "expired" : "active";
+                    return new Banner(rs.getString(1), rs.getString(2), eventStartAt.toString(),
+                            visibleFrom.toString(), visibleUntil.toString(), rs.getString(6), enabled,
+                            rs.getObject(8, LocalDateTime.class).toString(), visibilityStatus);
+                });
     }
 
     private void validate(Details details) {
@@ -166,6 +177,7 @@ public class HeroBannerController {
                           String linkUrl, boolean enabled) {}
     public record Banner(String title, String summary, String eventStartAt,
                          String visibleFrom, String visibleUntil,
-                         String linkUrl, boolean enabled, String updatedAt) {}
+                         String linkUrl, boolean enabled, String updatedAt,
+                         String visibilityStatus) {}
     private record Image(String contentType, byte[] bytes) {}
 }

@@ -6,7 +6,8 @@ import { productApi } from '../../products/api/productApi';
 import { localTime, money } from '../../../shared/utils/format';
 import CourtManagementPanel from './CourtManagementPanel';
 import ProductImageEditor from './ProductImageEditor';
-import HeroBannerEditor from './HeroBannerEditor';
+import TournamentAdmin from './TournamentAdmin';
+import EloAdmin from '../../elo/EloAdmin';
 import './AdminPage.css';
 
 const checkInAvailableAt = booking => new Date(booking.startAt).getTime() - 30 * 60_000;
@@ -41,6 +42,17 @@ export default function AdminPage() {
   const cancelReasonRef = useRef(null);
   const noShowNoticeTimerRef = useRef(null);
   useEffect(() => { api('/admin/me').then(() => { setAdmin(true); refresh(); }).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!admin) return undefined;
+    const verifySession = () => api('/admin/me').catch(error => {
+      if (error.status === 401) {
+        setAdmin(false);
+        setMessage('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      }
+    });
+    window.addEventListener('focus', verifySession);
+    return () => window.removeEventListener('focus', verifySession);
+  }, [admin]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
@@ -147,10 +159,11 @@ export default function AdminPage() {
   if (!admin) return <section className="container section narrow"><span className="eyebrow">KHU VỰC QUẢN LÝ</span><h1>Đăng nhập admin</h1><p>Đăng nhập bằng tài khoản quản trị để quản lý sân và đơn hàng.</p>{message && <p className="inline-message error">{message}</p>}<form className="detail-card form-stack" onSubmit={login}><label>Tài khoản<input autoComplete="username" value={credentials.username} onChange={e => setCredentials({ ...credentials, username: e.target.value })}/></label><label>Mật khẩu<input type="password" autoComplete="current-password" value={credentials.password} onChange={e => setCredentials({ ...credentials, password: e.target.value })}/></label><button className="btn primary">Đăng nhập</button></form></section>;
   return <section className="container section admin"><div className="section-heading"><div><span className="eyebrow">PICKLEZONE MANAGER</span><h1>Quản lý cửa hàng & sân</h1></div><button className="btn outline" onClick={() => run(async () => { await api('/auth/logout', { method: 'POST' }); resetCsrf(); setAdmin(false); })}>Đăng xuất</button></div>{message && <p className="inline-message">{message}</p>}
     <div className="stats"><div><b>{courts.length}</b><span>Sân</span></div><div><b>{bookings.length}</b><span>Phiếu</span></div><div><b>{orders.length}</b><span>Đơn</span></div><div><b>{products.length}</b><span>Sản phẩm</span></div></div>
-    <div className="tabs">{[['bookings','Phiếu sân'],['courts','Sân & giá'],['orders','Đơn hàng'],['products','Sản phẩm'],['payments','Thanh toán'],['hero','Banner trang chủ']].map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</div>
+    <div className="tabs">{[['bookings','Phiếu sân'],['courts','Sân & giá'],['orders','Đơn hàng'],['products','Sản phẩm'],['payments','Thanh toán'],['hero','Giải đấu'],['elo','Elo']].map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</div>
+    {tab === 'elo' && <EloAdmin/>}
     {tab === 'bookings' && <div className="table-card"><h2>Phiếu đặt sân</h2><div className="table-scroll"><table className="bookings-table"><thead><tr><th>Mã</th><th>Khách</th><th>Sân</th><th>Ngày</th><th>Giờ bắt đầu</th><th>Giờ kết thúc</th><th>Cọc</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{bookings.map(item => <tr key={item.id}><td><b>{item.bookingCode}</b></td><td>{item.guestName}<small>{item.guestPhone}</small></td><td>{item.courtName}</td><td>{new Date(item.startAt).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' })}</td><td>{localTime(item.startAt).split(' ')[0]}</td><td>{new Date(item.endAt).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })}</td><td>{money(item.depositRequired)}</td><td className="status-cell"><span className="badge" title={item.status === 'NO_SHOW' ? 'Khách không đến nhận sân trong 30 phút sau giờ bắt đầu' : undefined}>{item.status}</span></td><td className="actions-cell">{item.status === 'CONFIRMED' && <><span className="action-notice-anchor"><button className="booking-action booking-action-check-in" title={now < checkInAvailableAt(item) ? `Có thể nhận sân từ ${localTime(checkInAvailableAt(item))}` : 'Nhận sân cho khách đã đến'} onClick={() => Date.now() < checkInAvailableAt(item) ? showActionNotice(`${item.id}-check-in`) : run(() => adminBookingApi.checkIn(item.id))}>Nhận sân</button>{actionNoticeKey === `${item.id}-check-in` && <small className="action-notice" role="status">Nhận sân từ {localTime(checkInAvailableAt(item))}</small>}</span><span className="action-notice-anchor"><button className="booking-action booking-action-no-show" title={now < noShowAvailableAt(item) ? `Có thể đánh dấu sau ${localTime(noShowAvailableAt(item))}` : 'Đánh dấu khách không đến'} onClick={() => Date.now() < noShowAvailableAt(item) ? showActionNotice(`${item.id}-no-show`) : run(() => adminBookingApi.noShow(item.id))}>Không đến</button>{actionNoticeKey === `${item.id}-no-show` && <small className="action-notice" role="status">Chưa đến giờ</small>}</span></>}{item.status === 'CHECKED_IN' && <span className="action-notice-anchor"><button className="booking-action booking-action-complete" title={now < completionAvailableAt(item) ? `Có thể hoàn tất từ ${localTime(completionAvailableAt(item))}` : 'Đánh dấu phiếu đã hoàn tất'} onClick={() => Date.now() < completionAvailableAt(item) ? showActionNotice(`${item.id}-complete`) : run(() => adminBookingApi.complete(item.id))}>Hoàn tất</button>{actionNoticeKey === `${item.id}-complete` && <small className="action-notice" role="status">Hoàn tất từ {localTime(completionAvailableAt(item))}</small>}</span>}{['HOLD','CONFIRMED'].includes(item.status) && <button className="booking-action booking-action-cancel" title="Mở xác nhận hủy phiếu" onClick={() => openCancelDialog(item)}>Hủy phiếu</button>}</td></tr>)}</tbody></table></div></div>}
     {tab === 'courts' && <CourtManagementPanel courts={courts} onChanged={refresh}/>}
-    {tab === 'hero' && <HeroBannerEditor/>}
+    {tab === 'hero' && <TournamentAdmin onSessionExpired={() => { setAdmin(false); setMessage('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); }}/>}
     {tab === 'orders' && <div className="table-card"><h2>Đơn hàng</h2><div className="table-scroll"><table><thead><tr><th>Mã</th><th>Khách</th><th>Cách nhận</th><th>Tổng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{orders.map(item => <tr key={item.id}><td>{item.orderCode}</td><td>{item.guestName}</td><td>{item.fulfillmentMethod}{item.courtName && ` · ${item.courtName}`}</td><td>{money(item.totalAmount)}</td><td><span className="badge">{item.status}</span></td><td className="actions-cell">{item.status === 'NEW' && <button onClick={() => run(() => api(`/admin/orders/${item.id}/confirm`, { method: 'POST' }))}>Xác nhận</button>}{item.status === 'CONFIRMED' && <button onClick={() => run(() => api(`/admin/orders/${item.id}/prepare`, { method: 'POST' }))}>Chuẩn bị</button>}{item.fulfillmentMethod === 'COURT_DELIVERY' && <button onClick={() => { const username = prompt('Tài khoản nhân viên:'); if (username) run(() => api(`/admin/orders/${item.id}/assign`, { method: 'POST', body: { username } })); }}>Giao nhân viên</button>}</td></tr>)}</tbody></table></div></div>}
     {tab === 'products' && <>
       <div className="table-card"><h2>Sản phẩm</h2><div className="table-scroll"><table><thead><tr><th>Ảnh</th><th>Tên</th><th>Danh mục</th><th>SKU</th><th>Giá</th><th>Còn</th></tr></thead><tbody>{products.map(item => <tr key={item.id}><td>{item.imageUrl ? <img src={item.imageUrl} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8 }}/> : item.emoji}</td><td>{item.name}</td><td>{item.category}</td><td>{item.sku}</td><td>{money(item.price)}</td><td>{item.stock}</td></tr>)}</tbody></table></div></div>

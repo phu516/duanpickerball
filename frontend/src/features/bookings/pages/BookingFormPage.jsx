@@ -3,6 +3,7 @@ import { guestBookingApi } from '../api/guestBookingApi';
 import { bookingTimes } from '../bookingTimes';
 import { bookingTokenKey, localDate } from '../../../shared/utils/format';
 import { navigate } from '../../../app/router';
+import DateTimePicker from '../../../shared/components/DateTimePicker';
 import './BookingFormPage.css';
 
 const offsetDate = (date, time) => `${date}T${time}:00+07:00`;
@@ -74,7 +75,7 @@ export default function BookingFormPage({ court, initialDate, initialFrom = '17:
   return <section className="booking-panel"><div className="panel-heading"><span className="eyebrow">ĐẶT {court.name.toUpperCase()}</span><h2 id="booking-dialog-title">Chọn lịch và điền thông tin</h2><p>Giữ sân 30 phút để thanh toán cọc. Thời lượng tối thiểu 2 giờ.</p></div>
     <form className="form-grid booking-form" onSubmit={submit} noValidate>
       <div className="schedule-fields">
-        <label>Ngày chơi<input required type="date" min={localDate(new Date())} value={date} aria-invalid={!!fieldErrors.date} aria-describedby={fieldErrors.date ? 'booking-date-error' : undefined} ref={node => { inputRefs.current.date = node; }} onChange={e => { setDate(e.target.value); clearErrors('date', 'from', 'to'); }}/>{fieldErrors.date && <small className="booking-field-error" id="booking-date-error">{fieldErrors.date}</small>}</label>
+        <div className="booking-date-field"><DateTimePicker id="booking-date" label="Ngày chơi" dateOnly required minDate={localDate(new Date())} value={date} invalid={!!fieldErrors.date} errorId={fieldErrors.date ? 'booking-date-error' : undefined} inputRef={node => { inputRefs.current.date = node; }} onChange={value => { setDate(value); clearErrors('date', 'from', 'to'); }}/>{fieldErrors.date && <small className="booking-field-error" id="booking-date-error">{fieldErrors.date}</small>}</div>
         <label>Bắt đầu<select required value={from} aria-invalid={!!fieldErrors.from} aria-describedby={fieldErrors.from ? 'booking-from-error' : undefined} ref={node => { inputRefs.current.from = node; }} onChange={e => { setFrom(e.target.value); clearErrors('from', 'to'); }}><option value="">Chọn giờ</option>{bookingTimes.slice(0, -4).map(time => <option key={time}>{time}</option>)}</select>{fieldErrors.from && <small className="booking-field-error" id="booking-from-error">{fieldErrors.from}</small>}</label>
         <label>Kết thúc<select required value={to} aria-invalid={!!fieldErrors.to} aria-describedby={fieldErrors.to ? 'booking-to-error' : undefined} ref={node => { inputRefs.current.to = node; }} onChange={e => { setTo(e.target.value); clearErrors('to'); }}><option value="">Chọn giờ</option>{bookingTimes.map(time => <option key={time}>{time}</option>)}</select>{fieldErrors.to && <small className="booking-field-error" id="booking-to-error">{fieldErrors.to}</small>}</label>
       </div>

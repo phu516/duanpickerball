@@ -3,12 +3,19 @@ package com.pickleball.common.exception;
 import com.pickleball.common.response.ApiError;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> unreadableRequest(HttpMessageNotReadableException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiError.of("INVALID_REQUEST", "Dữ liệu gửi lên không hợp lệ. Vui lòng kiểm tra và thử lại."));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiError> business(BusinessException exception) {
         return ResponseEntity.status(exception.status())

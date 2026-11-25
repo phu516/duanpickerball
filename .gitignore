@@ -24,3 +24,6 @@ backend/data-transfer/
 /pickleball-court-booking-database-clear.png
 /README.md
 /backend/README.md
+face-service/.venv/
+face-service/__pycache__/
+face-service/models/*.onnx

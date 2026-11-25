@@ -35,6 +35,21 @@
   min-width: 155px;
 }
 
+.court-availability-fields .date-time-picker { min-width: 155px; }
+.court-availability-fields .date-time-trigger { min-height: 44px; font-size: 12px; }
+
+.tournament-court-notice {
+  margin-top: 18px;
+  padding: 16px 20px;
+  border: 1px solid #f0d499;
+  border-radius: 12px;
+  background: #fff7e5;
+  color: #684600;
+}
+
+.tournament-court-notice strong { font-size: 15px; }
+.tournament-court-notice p { margin: 6px 0 0; color: #684600; font-size: 13px; line-height: 1.6; }
+
 .court-card.court-card--occupied {
   border-color: #cbd2d8;
   background: #f0f2f4;

@@ -3,12 +3,17 @@ let csrf;
 
 export const apiUrl = path => `${baseUrl}${path}`;
 
-export async function api(path, { method = 'GET', body, token, form = false, requestKey } = {}) {
-  if (method !== 'GET' && !csrf) {
-    const response = await fetch(`${baseUrl}/auth/csrf`, { credentials: 'include' });
-    if (!response.ok) throw new Error('Không lấy được phiên bảo mật.');
-    csrf = await response.json();
-  }
+async function loadCsrf() {
+  const response = await fetch(`${baseUrl}/auth/csrf`, { credentials: 'include' });
+  if (!response.ok) throw new Error('Không lấy được phiên bảo mật.');
+  csrf = await response.json();
+  return csrf;
+}
+
+export async function api(path, { method = 'GET', body, token, form = false, requestKey, csrfRetry = true } = {}) {
+  // Fetch a fresh token for each write. Login/session rotation can invalidate a
+  // cached token even though the user's authentication cookie is still valid.
+  if (method !== 'GET') await loadCsrf();
   const headers = {};
   if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
   if (csrf && method !== 'GET') headers[csrf.headerName] = csrf.token;
@@ -20,8 +25,14 @@ export async function api(path, { method = 'GET', body, token, form = false, req
   });
   const data = response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) {
-    if (response.status === 403 && method !== 'GET') csrf = undefined;
-    throw new Error(data?.message || `Yêu cầu thất bại (${response.status})`);
+    if (response.status === 403 && data?.code === 'CSRF_INVALID' && csrfRetry) {
+      csrf = undefined;
+      return api(path, { method, body, token, form, requestKey, csrfRetry: false });
+    }
+    const error = new Error(data?.message || `Yêu cầu thất bại (${response.status})`);
+    error.status = response.status;
+    error.code = data?.code;
+    throw error;
   }
   return data;
 }
