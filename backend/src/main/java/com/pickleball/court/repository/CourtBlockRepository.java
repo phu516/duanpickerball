@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CourtBlockRepository extends JpaRepository<CourtBlock, Long> {
+    List<CourtBlock> findByCourtIdInAndActiveTrueAndStartAtLessThanAndEndAtGreaterThan(
+            List<Long> courtIds, LocalDateTime to, LocalDateTime from);
     List<CourtBlock> findByCourtIdAndActiveTrueAndStartAtLessThanAndEndAtGreaterThan(
             Long courtId, LocalDateTime end, LocalDateTime start);
     List<CourtBlock> findByActiveTrueOrderByStartAtAsc();

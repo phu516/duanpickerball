@@ -37,7 +37,7 @@ function getDefaultBookingTimes() {
   };
 }
 
-function BookingDialog({ court, date, from, to, onClose }) {
+function BookingDialog({ court, date, from, to, calendar, onClose }) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
 
@@ -88,7 +88,7 @@ function BookingDialog({ court, date, from, to, onClose }) {
           <span>Đặt sân · {court.name}</span>
           <button type="button" className="booking-dialog-close" aria-label="Đóng biểu mẫu đặt sân" onClick={onClose} ref={closeRef}><X size={20}/></button>
         </div>
-        <div className="booking-dialog-scroll"><BookingFormPage key={court.id} court={court} initialDate={date} initialFrom={from} initialTo={to}/></div>
+        <div className="booking-dialog-scroll"><BookingFormPage key={court.id} court={court} initialDate={date} initialFrom={from} initialTo={to} calendar={calendar}/></div>
       </div>
     </div>,
     document.body
@@ -179,13 +179,13 @@ export default function CourtsPage() {
     <div className="court-grid">{courts.map(item => {
       const overlaps = availability.filter(slot => slot.courtId === item.id && new Date(slot.startAt).getTime() < endAt && new Date(slot.endAt).getTime() > startAt);
       const status = overlaps.some(slot => slot.status === 'BOOKED') ? 'BOOKED' : overlaps.some(slot => slot.status === 'BLOCKED') ? 'BLOCKED' : null;
-      return <button key={item.id} type="button" className={`court-card${status ? ' court-card--occupied' : ''}`} disabled={availabilityLoading || !!availabilityError || !!status} onClick={() => setCourt(item)}>
+      return <button key={item.id} type="button" className={`court-card${status ? ' court-card--occupied' : ''}`} disabled={!!status} onClick={() => setCourt(item)}>
         <div className="court-card-title"><b className="court-code">{item.code}</b><div><h2>{item.name}</h2><p><MapPin size={16}/> {item.indoor ? 'Trong nhà' : 'Ngoài trời'} · {item.surface}</p></div></div>
         <div className="mini-court-art"><div className="mini-court-lines"><i/><i/><i/><i/></div><span>🟡</span></div>
-        <div className="court-card-foot"><strong>Từ {money(item.startingPrice)} / giờ</strong><span className="court-select">{status === 'BOOKED' ? 'Đã đặt' : status === 'BLOCKED' ? 'Tạm khóa' : 'Chọn sân →'}</span></div>
+        <div className="court-card-foot"><strong>Từ {money(item.startingPrice)} / giờ</strong><span className="court-select">{status === 'BOOKED' ? 'Đã đặt' : status === 'BLOCKED' ? 'Tạm khóa' : availabilityLoading ? 'Đang kiểm tra · Điền thông tin →' : 'Chọn sân →'}</span></div>
         {status && <p className="court-occupied-message">{status === 'BOOKED' ? 'Khung giờ này đã có phiếu đặt.' : 'Sân tạm khóa trong khung giờ đã chọn.'}</p>}
       </button>;
     })}</div>
-    {court && <BookingDialog court={court} date={date} from={from} to={to} onClose={closeDialog}/>}
+    {court && <BookingDialog court={court} date={date} from={from} to={to} calendar={{ date, slots: availability, loading: availabilityLoading, error: availabilityError, retry: () => setAvailabilityRefresh(value => value + 1) }} onClose={closeDialog}/>}
   </div>;
 }

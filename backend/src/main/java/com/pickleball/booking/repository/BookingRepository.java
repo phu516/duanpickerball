@@ -17,6 +17,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findCancelledBookings();
     Optional<Booking> findByBookingCode(String code);
     long countByBookingCodeStartingWith(String prefix);
+    List<Booking> findByCourtIdInAndStartAtLessThanAndEndAtGreaterThan(
+            List<Long> courtIds, LocalDateTime to, LocalDateTime from);
     List<Booking> findByCourtIdAndStartAtLessThanAndEndAtGreaterThan(
             Long courtId, LocalDateTime end, LocalDateTime start);
     List<Booking> findByStatusAndHoldExpiresAtBefore(String status, LocalDateTime now);

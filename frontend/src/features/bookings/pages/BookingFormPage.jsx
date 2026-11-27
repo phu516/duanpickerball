@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { guestBookingApi } from '../api/guestBookingApi';
 import { bookingTimes } from '../bookingTimes';
 import { bookingTokenKey, localDate } from '../../../shared/utils/format';
@@ -8,7 +8,7 @@ import './BookingFormPage.css';
 
 const offsetDate = (date, time) => `${date}T${time}:00+07:00`;
 
-export default function BookingFormPage({ court, initialDate, initialFrom = '17:00', initialTo = '19:00' }) {
+export default function BookingFormPage({ court, initialDate, initialFrom = '17:00', initialTo = '19:00', calendar }) {
   const [date, setDate] = useState(() => initialDate ?? localDate(Date.now() + 86_400_000));
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
@@ -18,6 +18,27 @@ export default function BookingFormPage({ court, initialDate, initialFrom = '17:
   const [busy, setBusy] = useState(false);
   const inputRefs = useRef({});
   const requestKey = useRef(crypto.randomUUID());
+
+  const [otherDay, setOtherDay] = useState(null);
+  const [attempt, setAttempt] = useState(0);
+  const usePageCalendar = calendar?.date === date;
+  useEffect(() => {
+    if (usePageCalendar || !date) return;
+    let active = true;
+    guestBookingApi.availability(date, court.id).then(slots => {
+      if (active) setOtherDay({ date, slots, attempt });
+    }).catch(e => {
+      if (active) setOtherDay({ date, error: e.message, attempt });
+    });
+    return () => { active = false; };
+  }, [date, court.id, usePageCalendar, attempt]);
+
+  const day = usePageCalendar ? calendar : otherDay?.date === date && otherDay.attempt === attempt ? otherDay : null;
+  const occupied = day?.slots?.some(slot => slot.courtId === court.id &&
+    Date.parse(slot.startAt) < Date.parse(offsetDate(date, to)) &&
+    Date.parse(slot.endAt) > Date.parse(offsetDate(date, from)));
+  const pending = !day || day.loading;
+  const unavailable = pending || !!day.error || occupied;
 
   function clearErrors(...fields) {
     setFieldErrors(current => {
@@ -53,7 +74,7 @@ export default function BookingFormPage({ court, initialDate, initialFrom = '17:
 
   async function submit(event) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || unavailable) return;
     const errors = validate();
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
@@ -84,7 +105,10 @@ export default function BookingFormPage({ court, initialDate, initialFrom = '17:
       <label>Email (không bắt buộc)<input type="email" value={form.email} aria-invalid={!!fieldErrors.email} aria-describedby={fieldErrors.email ? 'booking-email-error' : undefined} ref={node => { inputRefs.current.email = node; }} onChange={e => updateForm('email', e.target.value)}/>{fieldErrors.email && <small className="booking-field-error" id="booking-email-error">{fieldErrors.email}</small>}</label>
       <label>Ghi chú<textarea maxLength="1000" value={form.note} onChange={e => updateForm('note', e.target.value)}/></label>
       {error && <p className="inline-message error" role="alert">{error}</p>}
-      <div className="form-actions"><p>Khách đến muộn quá 30 phút sau giờ bắt đầu có thể bị ghi nhận không đến và mất cọc.</p><button className="btn primary" disabled={busy}>{busy ? 'Đang giữ sân…' : 'Tiếp tục thanh toán cọc'}</button></div>
+      {pending && date && <p role="status">Đang kiểm tra lịch sân. Bạn có thể điền thông tin trong lúc chờ.</p>}
+      {day?.error && <p role="alert">Không tải được lịch sân. <button type="button" onClick={usePageCalendar ? calendar.retry : () => setAttempt(value => value + 1)}>Thử lại</button></p>}
+      {occupied && <p role="status">Sân không còn trống trong khung giờ này. Vui lòng chọn giờ khác.</p>}
+      <div className="form-actions"><p>Khách đến muộn quá 30 phút sau giờ bắt đầu có thể bị ghi nhận không đến và mất cọc.</p><button className="btn primary" disabled={busy || unavailable}>{busy ? 'Đang giữ sân…' : 'Tiếp tục thanh toán cọc'}</button></div>
     </form>
   </section>;
 }

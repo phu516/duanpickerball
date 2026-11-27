@@ -141,8 +141,11 @@ public class CourtService {
         LocalDateTime from = date.atStartOfDay(LOCAL_ZONE).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
         LocalDateTime to = date.plusDays(1).atStartOfDay(LOCAL_ZONE).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
         List<AvailabilitySlot> result = new ArrayList<>();
+        if (selected.isEmpty()) return result;
+        var ids = selected.stream().map(Court::getId).toList();
+        var tournamentInterval = tournaments.blockedInterval(date);
+        var now = LocalDateTime.now(ZoneOffset.UTC);
         for (Court court : selected) {
-            var tournamentInterval = tournaments.blockedInterval(date);
             if (tournamentInterval != null) {
                 result.add(new AvailabilitySlot(court.getId(),
                         tournamentInterval[0].withZoneSameInstant(ZoneOffset.UTC).toOffsetDateTime(),
@@ -152,16 +155,16 @@ public class CourtService {
                 result.add(new AvailabilitySlot(court.getId(), from.atOffset(ZoneOffset.UTC),
                         to.atOffset(ZoneOffset.UTC), "BLOCKED"));
             }
-            bookings.findByCourtIdAndStartAtLessThanAndEndAtGreaterThan(court.getId(), to, from)
-                    .stream().filter(booking -> booking.blocks(LocalDateTime.now(ZoneOffset.UTC)))
-                    .forEach(booking -> result.add(new AvailabilitySlot(court.getId(),
+        }
+        bookings.findByCourtIdInAndStartAtLessThanAndEndAtGreaterThan(ids, to, from)
+                    .stream().filter(booking -> booking.blocks(now))
+                    .forEach(booking -> result.add(new AvailabilitySlot(booking.getCourt().getId(),
                             booking.getStartAt().atOffset(ZoneOffset.UTC),
                             booking.getEndAt().atOffset(ZoneOffset.UTC), "BOOKED")));
-            blocks.findByCourtIdAndActiveTrueAndStartAtLessThanAndEndAtGreaterThan(court.getId(), to, from)
-                    .forEach(block -> result.add(new AvailabilitySlot(court.getId(),
+        blocks.findByCourtIdInAndActiveTrueAndStartAtLessThanAndEndAtGreaterThan(ids, to, from)
+                    .forEach(block -> result.add(new AvailabilitySlot(block.getCourt().getId(),
                             block.getStartAt().atOffset(ZoneOffset.UTC),
                             block.getEndAt().atOffset(ZoneOffset.UTC), "BLOCKED")));
-        }
         return result;
     }
 
