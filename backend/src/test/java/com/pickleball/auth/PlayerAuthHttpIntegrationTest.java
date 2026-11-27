@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
         "spring.config.import=", "spring.datasource.url=jdbc:h2:mem:player-http;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "spring.datasource.username=sa", "spring.datasource.password=", "spring.flyway.enabled=false",
         "spring.sql.init.mode=always",
-        "spring.sql.init.schema-locations=classpath:db/migration/V1__create_users_and_access.sql,classpath:db/test/player_account_tokens.sql",
+        "spring.sql.init.schema-locations=classpath:db/migration/V1__create_users_and_access.sql,classpath:db/migration/V17__create_elo.sql,classpath:db/test/player_account_tokens.sql",
         "spring.mail.host=example.invalid", "app.mail-from=no-reply@example.com", "app.public-url=http://localhost:5173",
         "app.frontend-origin=http://localhost:5173"
 })

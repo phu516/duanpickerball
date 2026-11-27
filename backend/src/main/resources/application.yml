@@ -1,10 +1,12 @@
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
   servlet:
     session:
       cookie:
         http-only: true
-        same-site: lax
+        same-site: ${PICKLE_COOKIE_SAME_SITE:lax}
+        secure: ${PICKLE_COOKIE_SECURE:false}
 spring:
   mail:
     host: ${PICKLE_SMTP_HOST:}

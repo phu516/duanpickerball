@@ -29,7 +29,10 @@ export async function api(path, { method = 'GET', body, token, form = false, req
       csrf = undefined;
       return api(path, { method, body, token, form, requestKey, csrfRetry: false });
     }
-    const error = new Error(data?.message || `Yêu cầu thất bại (${response.status})`);
+    const message = data?.code === 'CSRF_INVALID'
+      ? 'Không duy trì được phiên bảo mật. Hãy tải lại trang rồi thử lại; nếu vẫn lỗi, cần kiểm tra cấu hình cookie và địa chỉ API.'
+      : data?.message || `Yêu cầu thất bại (${response.status})`;
+    const error = new Error(message);
     error.status = response.status;
     error.code = data?.code;
     throw error;

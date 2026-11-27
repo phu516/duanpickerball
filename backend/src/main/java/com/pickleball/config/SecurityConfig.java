@@ -53,7 +53,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper, SessionRegistry sessions,
-                                                   @Value("${app.frontend-origin}") String origin) throws Exception {
+                                                   @Value("${app.frontend-origin}") String origin,
+                                                   @Value("${server.servlet.session.cookie.same-site:lax}") String cookieSameSite,
+                                                   @Value("${server.servlet.session.cookie.secure:false}") boolean secureCookies) throws Exception {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(java.util.List.of(origin));
         cors.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
@@ -62,9 +64,15 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource corsSource = new UrlBasedCorsConfigurationSource();
         corsSource.registerCorsConfiguration("/**", cors);
 
+        CookieCsrfTokenRepository csrfTokens = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokens.setCookieCustomizer(cookie -> {
+            cookie.sameSite(cookieSameSite);
+            if (secureCookies) cookie.secure(true);
+        });
+
         http.cors(c -> c.configurationSource(corsSource))
                 .sessionManagement(session -> session.maximumSessions(-1).sessionRegistry(sessions))
-                .csrf(c -> c.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrf(c -> c.csrfTokenRepository(csrfTokens)
                         .ignoringRequestMatchers("/api/v1/webhooks/payos"))
                 .authorizeHttpRequests(auth -> auth
                         // Render the original HTTP error instead of replacing it
@@ -104,7 +112,7 @@ public class SecurityConfig {
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             if (exception instanceof CsrfException) {
                                 mapper.writeValue(response.getWriter(), ApiError.of("CSRF_INVALID",
-                                        "Phiên bảo mật đã hết hạn. Đang thử lại yêu cầu."));
+                                        "Không duy trì được phiên bảo mật. Vui lòng tải lại trang và thử lại."));
                             } else {
                                 mapper.writeValue(response.getWriter(), ApiError.of("ACCESS_DENIED", "Không đủ quyền"));
                             }

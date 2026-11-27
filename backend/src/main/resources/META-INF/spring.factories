@@ -1,0 +1,1 @@
+org.springframework.boot.EnvironmentPostProcessor=com.pickleball.config.RenderCookieDefaults
