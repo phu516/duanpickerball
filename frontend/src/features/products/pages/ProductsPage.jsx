@@ -11,8 +11,16 @@ export default function ProductsPage({ featured = false }) {
   const [category, setCategory] = useState('Tất cả');
   const [keyword, setKeyword] = useState('');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
   const { add } = useCart();
-  useEffect(() => { productApi.list().then(setProducts).catch(e => setMessage(e.message)); }, []);
+  useEffect(() => {
+    let active = true;
+    productApi.list()
+      .then(data => { if (active) setProducts(data); })
+      .catch(error => { if (active) setMessage(error.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
   const categories = ['Tất cả', ...new Set(products.map(item => item.category))];
   const visible = useMemo(() => products.filter(item => (category === 'Tất cả' || item.category === category)
     && `${item.name} ${item.brand}`.toLowerCase().includes(keyword.toLowerCase())), [products, category, keyword]);
@@ -25,6 +33,7 @@ export default function ProductsPage({ featured = false }) {
     <div className="eyebrow">PICKLEZONE SHOP</div><div className="section-heading"><div><h1>{featured ? 'Trang bị cho trận đấu' : 'Cửa hàng pickleball'}</h1><p>Vợt, trang phục, phụ kiện và nước uống đều nằm trong một cửa hàng.</p></div>{featured && <a className="text-link" href="#/products">Xem tất cả <ArrowRight size={18}/></a>}</div>
     {!featured && <div className="filter-row"><input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="Tìm sản phẩm…"/><div>{categories.map(name => <button key={name} className={category === name ? 'chip active' : 'chip'} onClick={() => setCategory(name)}>{name}</button>)}</div></div>}
     {message && <p className="inline-message">{message}</p>}
+    {loading && <p role="status">Đang tải sản phẩm…</p>}
     <div className="product-grid">{(featured ? visible.slice(0, 4) : visible).map(item => <ProductCard key={item.id} item={item} onAdd={onAdd}/>)}</div>
   </section>;
 }

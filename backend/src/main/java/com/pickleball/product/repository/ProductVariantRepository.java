@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ProductVariantRepository extends JpaRepository<ProductVariant, Long> {
     List<ProductVariant> findByProductIdOrderByIdAsc(Long productId);
+    List<ProductVariant> findByProductIdInOrderByIdAsc(List<Long> productIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select v from ProductVariant v where v.id = :id")

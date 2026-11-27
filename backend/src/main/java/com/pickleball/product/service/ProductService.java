@@ -9,6 +9,8 @@ import com.pickleball.product.repository.*;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,12 +35,25 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductResponse> list(String keyword, Long categoryId, boolean includeInactive) {
-        return products.findAll().stream()
+        List<Product> selected = products.findAll().stream()
                 .filter(product -> includeInactive || product.isActive())
                 .filter(product -> categoryId == null || product.getCategory().getId().equals(categoryId))
                 .filter(product -> keyword == null || product.getName().toLowerCase()
                         .contains(keyword.trim().toLowerCase()))
-                .map(this::map).toList();
+                .toList();
+        if (selected.isEmpty()) return List.of();
+
+        List<Long> ids = selected.stream().map(Product::getId).toList();
+        Map<Long, List<ProductVariant>> variantsByProduct = variants.findByProductIdInOrderByIdAsc(ids)
+                .stream().collect(Collectors.groupingBy(v -> v.getProduct().getId()));
+        Map<Long, List<ProductImage>> imagesByProduct = images.findForProducts(ids)
+                .stream().collect(Collectors.groupingBy(i -> i.getProduct().getId()));
+        Map<Long, List<ProductFulfillmentOption>> fulfillmentByProduct = fulfillment.findByProductIdIn(ids)
+                .stream().collect(Collectors.groupingBy(f -> f.getProduct().getId()));
+        return selected.stream().map(product -> map(product,
+                variantsByProduct.getOrDefault(product.getId(), List.of()),
+                imagesByProduct.getOrDefault(product.getId(), List.of()),
+                fulfillmentByProduct.getOrDefault(product.getId(), List.of()))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -117,15 +132,21 @@ public class ProductService {
     }
 
     private ProductResponse map(Product product) {
-        List<ProductVariant> allVariants = variants.findByProductIdOrderByIdAsc(product.getId());
-        List<ProductImage> productImages = images.findByProductIdOrderByPrimaryImageDescSortOrderAscIdAsc(product.getId());
+        return map(product, variants.findByProductIdOrderByIdAsc(product.getId()),
+                images.findByProductIdOrderByPrimaryImageDescSortOrderAscIdAsc(product.getId()),
+                fulfillment.findByProductId(product.getId()));
+    }
+
+    private ProductResponse map(Product product, List<ProductVariant> allVariants,
+                                List<ProductImage> productImages,
+                                List<ProductFulfillmentOption> productFulfillment) {
         ProductVariant variant = allVariants.stream()
                 .findFirst().orElseThrow(() -> new BusinessException(HttpStatus.CONFLICT,
                         "NO_VARIANT", "Sản phẩm chưa có SKU"));
         return new ProductResponse(product.getId(), variant.getId(), product.getName(),
                 product.getBrand(), product.getCategory().getName(), product.getDescription(),
                 product.getImageUrl(), product.getEmoji(), variant.getPrice(), variant.available(),
-                variant.getSku(), fulfillment.findByProductId(product.getId()).stream()
+                variant.getSku(), productFulfillment.stream()
                 .map(ProductFulfillmentOption::getMethod).toList(),
                 allVariants.stream().map(v -> new ProductResponse.Variant(v.getId(),
                         v.getSku(), v.getLabel(), v.getPrice(), v.available(), v.isActive(),

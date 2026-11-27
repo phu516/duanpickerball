@@ -18,5 +18,6 @@ public class ProductFulfillmentOption {
     }
 
     public Long getId() { return id; }
+    public Product getProduct() { return product; }
     public String getMethod() { return method; }
 }

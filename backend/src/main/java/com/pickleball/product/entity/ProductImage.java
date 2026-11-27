@@ -25,6 +25,7 @@ public class ProductImage {
     }
 
     public ProductVariant getVariant() { return variant; }
+    public Product getProduct() { return product; }
     public String getUrl() { return url; }
     public void setUrl(String url) { this.url = url; }
 }
